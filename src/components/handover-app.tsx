@@ -1,0 +1,869 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowDownToLine,
+  ArrowRight,
+  Check,
+  CheckCheck,
+  CircleCheck,
+  FileCheck2,
+  FileText,
+  GitCompareArrows,
+  Info,
+  LoaderCircle,
+  LockKeyhole,
+  Play,
+  RotateCcw,
+  ShieldCheck,
+  Sparkles,
+  TriangleAlert,
+  Upload,
+  X,
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { FindingCard, statusIcons } from "./finding-card";
+import { ProposalPanel } from "./proposal-panel";
+import {
+  analysisSchema,
+  classificationLabels,
+  classifications,
+  documentSchema,
+  type AnalysisResult,
+  type Classification,
+  type Reviews,
+  type UploadedDocument,
+} from "@/lib/schemas";
+import { getDemoAnalysis } from "@/lib/demo";
+import {
+  getWorkflowStep,
+  reviewProgress,
+  serializeSession,
+  SESSION_KEY,
+  updateReview,
+  type WorkflowActivity,
+} from "@/lib/review";
+import { validateFile } from "@/lib/file-validation";
+
+export function HandoverApp({ model }: { model: string }) {
+  const [documents, setDocuments] = useState<
+    Partial<Record<"agreement" | "handover", UploadedDocument>>
+  >({});
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [reviews, setReviews] = useState<Reviews>({});
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState<WorkflowActivity>(null);
+  const [error, setError] = useState("");
+  const [storageWarning, setStorageWarning] = useState("");
+  const [ready, setReady] = useState(false);
+  const [filter, setFilter] = useState<Classification | "all">("all");
+  const [onlyUnreviewed, setOnlyUnreviewed] = useState(false);
+  const [documentView, setDocumentView] = useState<
+    "agreement" | "handover" | null
+  >(null);
+  const lock = useRef(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      // A new page visit always starts a fresh control. Never restore an old
+      // analysis into the upload flow, even when this tab has saved results.
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setStorageWarning(
+        "Nettleseren tillater ikke øktlagring. Vurderinger beholdes bare mens siden er åpen.",
+      );
+    }
+    setReady(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      if (result)
+        sessionStorage.setItem(SESSION_KEY, serializeSession(result, reviews));
+      else sessionStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* State remains available in memory if session storage is disabled. */
+    }
+  }, [result, reviews, ready]);
+
+  async function upload(file: File, id: "agreement" | "handover") {
+    if (lock.current) return;
+    setError("");
+    if (!consent) {
+      setError(
+        "Bekreft først at dokumentene er syntetiske og uten konfidensielle opplysninger.",
+      );
+      return;
+    }
+    try {
+      validateFile(file);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ugyldig fil.");
+      return;
+    }
+    lock.current = true;
+    setBusy(id);
+    setResult(null);
+    setReviews({});
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      form.set("id", id);
+      form.set("syntheticOnly", "true");
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        body: form,
+        signal: AbortSignal.timeout(35_000),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Kunne ikke lese filen.");
+      const doc = documentSchema.parse(data.document);
+      if (doc.id !== id)
+        throw new Error("Dokumentrollen stemmer ikke. Prøv igjen.");
+      setDocuments((prev) => ({ ...prev, [id]: doc }));
+      setResult(null);
+      setReviews({});
+      setFilter("all");
+    } catch (e) {
+      setError(
+        e instanceof Error && e.name !== "TimeoutError"
+          ? e.message
+          : "Opplastingen tok for lang tid. Prøv en mindre fil.",
+      );
+    } finally {
+      lock.current = false;
+      setBusy(null);
+    }
+  }
+  function demo() {
+    if (lock.current) return;
+    const demoResult = getDemoAnalysis();
+    setDocuments(demoResult.documents);
+    setResult(demoResult);
+    setReviews({});
+    setConsent(true);
+    setError("");
+    setFilter("all");
+    setOnlyUnreviewed(false);
+    setTimeout(
+      () =>
+        resultsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        }),
+      80,
+    );
+  }
+  async function analyze() {
+    if (lock.current || !documents.agreement || !documents.handover || !consent)
+      return;
+    lock.current = true;
+    setBusy("analysis");
+    setError("");
+    setResult(null);
+    setReviews({});
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...documents, syntheticOnly: consent }),
+        signal: AbortSignal.timeout(70_000),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Analysen kunne ikke fullføres.");
+      const parsed = analysisSchema.parse(data.result);
+      setResult(parsed);
+      setReviews({});
+      setFilter("all");
+      setOnlyUnreviewed(false);
+      setTimeout(
+        () =>
+          resultsRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          }),
+        80,
+      );
+    } catch (e) {
+      setError(
+        e instanceof Error && e.name !== "TimeoutError"
+          ? e.message
+          : "Analysen tok for lang tid. Prøv kortere dokumenter.",
+      );
+    } finally {
+      lock.current = false;
+      setBusy(null);
+    }
+  }
+  function reset() {
+    setResult(null);
+    setDocuments({});
+    setReviews({});
+    setError("");
+    setConsent(false);
+    setFilter("all");
+    setOnlyUnreviewed(false);
+  }
+  const progress = result ? reviewProgress(result.findings, reviews) : null;
+  const visible =
+    result?.findings.filter(
+      (f) =>
+        (filter === "all" || f.classification === filter) &&
+        (!onlyUnreviewed ||
+          !reviews[f.id] ||
+          reviews[f.id].decision === "unreviewed"),
+    ) ?? [];
+  const counts = Object.fromEntries(
+    classifications.map((c) => [
+      c,
+      result?.findings.filter((f) => f.classification === c).length ?? 0,
+    ]),
+  ) as Record<Classification, number>;
+  const currentStep = getWorkflowStep(documents, busy, result, reviews);
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <Link className="brand" href="/" aria-label="Handover AI – startside">
+          <span className="brand-mark">
+            <GitCompareArrows size={23} />
+          </span>
+          <span>
+            handover<span className="brand-ai">AI</span>
+          </span>
+        </Link>
+        <div className="workspace-label">ARBEIDSOMRÅDE</div>
+        <div className="nav-active">
+          <FileCheck2 size={18} />
+          Overleveringskontroll
+          <span className="nav-dot" />
+        </div>
+        <div className="sidebar-note">
+          <div className="sidebar-note-icon">
+            <ShieldCheck size={20} />
+          </div>
+          <strong>
+            Bedre overleveringer
+            <br />
+            starter med oversikt.
+          </strong>
+          <p>
+            Se hva som er avtalt, hva som er overført, og hva som bør avklares.
+          </p>
+        </div>
+        <div className="sidebar-bottom">
+          <span className="prototype-dot" />
+          PORTFOLIOPROTOTYPE<span>Utviklet for menneskelig kontroll</span>
+        </div>
+      </aside>
+      <div className="main-shell">
+        <header className="topbar">
+          <div className="breadcrumb">
+            Arbeidsområde <span>/</span> <strong>Overleveringskontroll</strong>
+          </div>
+          <span className="privacy-label">
+            <LockKeyhole size={14} />
+            Kun syntetiske dokumenter
+          </span>
+        </header>
+        <main id="main">
+          <div className="page-heading">
+            <div>
+              <div className="eyebrow">FRA SALG TIL LEVERANSE</div>
+              <h1>Få med det som er avtalt.</h1>
+              <p>
+                Sammenlign kundeavtalen med overleveringen før prosjektet
+                starter.
+              </p>
+            </div>
+          </div>
+          <ol className="steps" aria-label="Arbeidsflyt">
+            {[
+              "Legg til dokumenter",
+              "Analyser med AI",
+              "Vurder og avklar",
+              "Generer forslag",
+            ].map((label, i) => (
+              <li
+                key={label}
+                className={
+                  currentStep === i + 1
+                    ? "step current"
+                    : currentStep > i + 1
+                      ? "step complete"
+                      : "step"
+                }
+                aria-current={currentStep === i + 1 ? "step" : undefined}
+              >
+                <span className="step-number">
+                  {currentStep > i + 1 ? <Check size={14} /> : `0${i + 1}`}
+                </span>
+                <span>{label}</span>
+                {i < 3 && <span className="step-line" />}
+              </li>
+            ))}
+          </ol>
+
+          <div className="restriction">
+            <ShieldCheck size={18} />
+            <div>
+              <strong>En trygg demo begynner med syntetiske data.</strong>
+              <span>
+                Bruk kun oppdiktede dokumenter. Ekte avtaler, personopplysninger
+                og konfidensielt innhold skal ikke lastes opp.
+              </span>
+            </div>
+          </div>
+
+          <section
+            className="documents-section"
+            aria-labelledby="documents-title"
+          >
+            <div className="section-heading">
+              <div>
+                <h2 id="documents-title">Dokumentgrunnlag</h2>
+                <p>To dokumenter. Én kontroll av det som skal leveres.</p>
+              </div>
+              {result?.mode === "live" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={reset}
+                  disabled={!!busy}
+                >
+                  <RotateCcw size={14} />
+                  Ny kontroll
+                </Button>
+              )}
+            </div>
+            <label className="consent">
+              <input
+                type="checkbox"
+                checked={consent}
+                disabled={!!busy}
+                onChange={(e) => setConsent(e.target.checked)}
+              />
+              <span>
+                Jeg bekrefter at dokumentene er syntetiske og ikke inneholder
+                konfidensielle opplysninger.
+              </span>
+            </label>
+            <div className="upload-grid">
+              {(["agreement", "handover"] as const).map((id) => (
+                <UploadCard
+                  key={id}
+                  id={id}
+                  document={documents[id]}
+                  disabled={!!busy || !consent || !ready}
+                  loading={busy === id}
+                  onUpload={(file) => upload(file, id)}
+                  onView={() => setDocumentView(id)}
+                />
+              ))}
+            </div>
+            <div className="analyze-bar">
+              <div className="model-info">
+                <span>
+                  <strong>{model}</strong>
+                </span>
+              </div>
+              <Button
+                onClick={analyze}
+                disabled={
+                  !!busy ||
+                  !consent ||
+                  !documents.agreement ||
+                  !documents.handover ||
+                  result?.mode === "live"
+                }
+              >
+                {busy === "analysis" ? (
+                  <LoaderCircle size={17} className="spin" />
+                ) : (
+                  <Sparkles size={17} />
+                )}
+                {busy === "analysis"
+                  ? "Analyserer dokumentene …"
+                  : "Analyser med AI"}
+                {busy !== "analysis" && <ArrowRight size={16} />}
+              </Button>
+            </div>
+          </section>
+
+          {error && (
+            <div className="error-message" role="alert">
+              <TriangleAlert size={18} />
+              <div>
+                <strong>Kunne ikke fullføre</strong>
+                <p>{error}</p>
+                {result?.mode === "demo" && (
+                  <p>
+                    Resultatene nedenfor er fortsatt den forhåndsberegnede
+                    demoen.
+                  </p>
+                )}
+              </div>
+              <button
+                aria-label="Lukk feilmelding"
+                onClick={() => setError("")}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {storageWarning && (
+            <p className="storage-warning" role="status">
+              {storageWarning}
+            </p>
+          )}
+          {busy === "analysis" && (
+            <div className="loading-panel" role="status" aria-live="polite">
+              <LoaderCircle className="spin" size={24} />
+              <h3>Kontrollerer forpliktelsene</h3>
+              <p>
+                Gemini sammenligner innholdet. Deretter kontrolleres sitatene
+                mot dokumentene.
+              </p>
+              <span>Dette kan ta opptil 60 sekunder. Unngå å lukke siden.</span>
+            </div>
+          )}
+
+          {result && progress ? (
+            <section
+              className="results-section"
+              ref={resultsRef}
+              aria-labelledby="results-title"
+            >
+              <div className={`analysis-origin ${result.mode}`}>
+                <span>
+                  {result.mode === "demo" ? (
+                    <Play size={15} />
+                  ) : (
+                    <Sparkles size={15} />
+                  )}
+                  <strong>
+                    {result.mode === "demo"
+                      ? "Demomodus · forhåndsberegnede resultater"
+                      : "Live AI-analyse · " + result.model}
+                  </strong>
+                </span>
+                {result.mode === "demo" ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span>Fiktivt prosjekt: Fjordlogistikk AS</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={!!busy}
+                      onClick={() => {
+                        reset();
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    >
+                      <X size={14} />
+                      Lukk demo
+                    </Button>
+                  </div>
+                ) : (
+                  <span>
+                    {new Date(result.createdAt).toLocaleString("nb-NO")}
+                  </span>
+                )}
+              </div>
+              <div className="section-heading results-heading">
+                <div>
+                  <div className="eyebrow">KONTROLLRESULTAT</div>
+                  <h2 id="results-title">Dette bør teamet se nærmere på.</h2>
+                  <p>
+                    AI foreslår. Du kontrollerer kildene og vurderer hvert funn.
+                  </p>
+                </div>
+                <span className="unresolved">
+                  <span />
+                  {progress.unresolved} uvurderte funn
+                </span>
+              </div>
+              <div className="summary-grid">
+                <div className="summary-card">
+                  <span>Forpliktelser identifisert</span>
+                  <strong>{result.findings.length}</strong>
+                  <small>i kundeavtalen</small>
+                </div>
+                {(
+                  [
+                    "potentially_missing",
+                    "needs_clarification",
+                    "covered",
+                  ] as const
+                ).map((c) => {
+                  const Icon = statusIcons[c];
+                  return (
+                    <button
+                      className={`summary-card summary-status ${c} ${filter === c ? "selected" : ""}`}
+                      key={c}
+                      onClick={() => setFilter(filter === c ? "all" : c)}
+                      aria-pressed={filter === c}
+                    >
+                      <span>
+                        <Icon size={16} />
+                        {classificationLabels[c]}
+                      </span>
+                      <strong>{counts[c]}</strong>
+                      <small>
+                        {c === "covered"
+                          ? "ser ut til å være overført"
+                          : c === "potentially_missing"
+                            ? "uten tilsvarende informasjon"
+                            : "trenger en avklaring"}
+                      </small>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="review-progress">
+                <span>
+                  <CheckCheck size={17} />
+                  <strong>
+                    {progress.reviewed} av {progress.total}
+                  </strong>{" "}
+                  funn vurdert
+                </span>
+                <div
+                  className="progress-track"
+                  role="progressbar"
+                  aria-label="Vurderingsfremdrift"
+                  aria-valuenow={progress.reviewed}
+                  aria-valuemin={0}
+                  aria-valuemax={progress.total || 1}
+                >
+                  <div
+                    style={{
+                      width: `${progress.total ? (progress.reviewed / progress.total) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+                <span>
+                  {progress.unresolved === 0 && progress.total > 0
+                    ? "Alle funn er vurdert"
+                    : "Vurdering lagres i denne nettleserøkten"}
+                </span>
+              </div>
+              <div className="findings-toolbar">
+                <div
+                  className="filters"
+                  role="group"
+                  aria-label="Filtrer etter AI-klassifisering"
+                >
+                  <button
+                    aria-pressed={filter === "all"}
+                    onClick={() => setFilter("all")}
+                  >
+                    Alle funn <span>{result.findings.length}</span>
+                  </button>
+                  {classifications.map((c) => (
+                    <button
+                      key={c}
+                      aria-pressed={filter === c}
+                      onClick={() => setFilter(c)}
+                    >
+                      {classificationLabels[c]} <span>{counts[c]}</span>
+                    </button>
+                  ))}
+                </div>
+                <label className="unreviewed-toggle">
+                  <input
+                    type="checkbox"
+                    checked={onlyUnreviewed}
+                    onChange={(e) => setOnlyUnreviewed(e.target.checked)}
+                  />
+                  Kun uvurderte
+                </label>
+              </div>
+              <div className="findings-list">
+                {visible.length ? (
+                  visible.map((finding, i) => (
+                    <FindingCard
+                      key={`${result.id}-${finding.id}`}
+                      finding={finding}
+                      index={i}
+                      documents={result.documents}
+                      review={
+                        reviews[finding.id] || {
+                          decision: "unreviewed",
+                          comment: "",
+                        }
+                      }
+                      onReview={(change) =>
+                        setReviews((prev) =>
+                          updateReview(prev, finding.id, change),
+                        )
+                      }
+                    />
+                  ))
+                ) : (
+                  <div className="empty-findings">
+                    <CircleCheck size={26} />
+                    <h3>
+                      {result.findings.length
+                        ? "Ingen funn i dette utvalget"
+                        : "Ingen forpliktelser identifisert"}
+                    </h3>
+                    <p>
+                      {result.findings.length
+                        ? "Velg et annet filter for å se flere funn."
+                        : "Dette bekrefter ikke at avtalen er uten forpliktelser. Les dokumentene manuelt og kontroller at teksten er fullstendig."}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="result-disclaimer">
+                <Info size={16} />
+                <p>
+                  Sitatkontrollen bekrefter at teksten finnes i kilden, ikke at
+                  AI-tolkningen er riktig. Manglende sitat fra overleveringen
+                  beviser ikke en utelatelse. Bekreftet betyr at du er enig i
+                  funnet; det betyr ikke at en leveranseutfordring er løst.
+                  Kontrollen er ingen juridisk vurdering eller garanti for
+                  avtalemessig etterlevelse.
+                </p>
+              </div>
+              <ProposalPanel
+                key={result.id}
+                analysis={result}
+                reviews={reviews}
+                allReviewed={progress.unresolved === 0}
+                syntheticConfirmed={consent}
+                activity={
+                  busy === "proposal" || busy === "verification" ? busy : null
+                }
+                onActivity={setBusy}
+              />
+            </section>
+          ) : (
+            !busy && (
+              <section className="empty-state">
+                <div className="empty-state-main">
+                  <span className="empty-icon">
+                    <GitCompareArrows size={24} />
+                  </span>
+                  <div>
+                    <h3>Se overleveringen med et ekstra sett øyne.</h3>
+                    <p>
+                      Finn mulige utelatelser og motstridende opplysninger,
+                      <br className="desktop-break" /> med sitater du kan
+                      kontrollere selv.
+                    </p>
+                  </div>
+                </div>
+                <div className="demo-callout">
+                  <span className="mini-label">INGEN API-NØKKEL NØDVENDIG</span>
+                  <strong>Prøv et realistisk eksempel</strong>
+                  <p>
+                    En avtale, en overlevering og syv forpliktelser.
+                    <br />
+                    Se hva som ble med – og hva som mangler.
+                  </p>
+                  <button onClick={demo} disabled={!ready}>
+                    Åpne demo <ArrowRight size={15} />
+                  </button>
+                  <small>
+                    Forhåndsberegnede resultater · ingen AI-forespørsel
+                  </small>
+                </div>
+              </section>
+            )
+          )}
+          <footer>
+            <span>
+              Handover AI <span className="footer-divider">/</span> Fra avtale
+              til felles forståelse.
+            </span>
+            <span>Prototype · Mennesket tar den endelige beslutningen</span>
+          </footer>
+        </main>
+      </div>
+      {documentView && documents[documentView] && (
+        <DocumentDialog
+          document={documents[documentView]!}
+          onClose={() => setDocumentView(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function UploadCard({
+  id,
+  document,
+  disabled,
+  loading,
+  onUpload,
+  onView,
+}: {
+  id: "agreement" | "handover";
+  document?: UploadedDocument;
+  disabled: boolean;
+  loading: boolean;
+  onUpload: (file: File) => void;
+  onView: () => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [drag, setDrag] = useState(false);
+  const title =
+    id === "agreement" ? "Kundeavtale" : "Interne overleveringsnotater";
+  return (
+    <div className="upload-card">
+      <div className="upload-card-heading">
+        <span className="doc-letter">{id === "agreement" ? "A" : "B"}</span>
+        <div>
+          <h3>{title}</h3>
+          <p>
+            {id === "agreement"
+              ? "Hva har vi forpliktet oss til?"
+              : "Hva har leveringsteamet fått vite?"}
+          </p>
+        </div>
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept=".pdf,.txt,application/pdf,text/plain"
+        aria-label={`Last opp ${title.toLowerCase()}`}
+        className="sr-only"
+        disabled={disabled}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onUpload(file);
+          e.target.value = "";
+        }}
+      />
+      <button
+        className={`dropzone ${drag ? "dragging" : ""} ${document ? "has-document" : ""}`}
+        disabled={disabled}
+        onClick={() => input.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!disabled) setDrag(true);
+        }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDrag(false);
+          if (!disabled && e.dataTransfer.files[0])
+            onUpload(e.dataTransfer.files[0]);
+        }}
+      >
+        {loading ? (
+          <LoaderCircle className="spin" size={23} />
+        ) : document ? (
+          <span className="uploaded-file-icon">
+            <FileCheck2 size={24} />
+          </span>
+        ) : (
+          <span className="upload-icon">
+            <Upload size={21} />
+          </span>
+        )}
+        <strong>
+          {loading
+            ? "Henter ut tekst …"
+            : document
+              ? document.name
+              : "Klikk for å laste opp eller dra filen hit"}
+        </strong>
+        <span>
+          {document
+            ? `${document.text.length.toLocaleString("nb-NO")} tegn hentet ut · Klikk for å erstatte`
+            : "PDF med markerbar tekst eller TXT · maks. 2 MB"}
+        </span>
+      </button>
+      <div className="upload-card-footer">
+        {document ? (
+          <>
+            <span>
+              <CircleCheck size={13} />
+              Klar for analyse
+            </span>
+            <button onClick={onView}>
+              <FileText size={13} />
+              Se tekst
+            </button>
+          </>
+        ) : (
+          <>
+            <span>
+              <FileText size={13} />
+              {id === "agreement"
+                ? "Signert avtale eller arbeidsbeskrivelse"
+                : "Internt dokument fra salg til leveranse"}
+            </span>
+            <span>20 000 tegn</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DocumentDialog({
+  document,
+  onClose,
+}: {
+  document: UploadedDocument;
+  onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  function download() {
+    const url = URL.createObjectURL(
+      new Blob([document.text], { type: "text/plain;charset=utf-8" }),
+    );
+    const anchor = globalThis.document.createElement("a");
+    anchor.href = url;
+    anchor.download = document.name.replace(/\.[^.]+$/, "") + "_uttrukket.txt";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+  return (
+    <dialog
+      ref={dialog}
+      className="document-dialog"
+      onCancel={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      aria-labelledby="document-dialog-title"
+    >
+      <div className="dialog-header">
+        <div>
+          <span className="eyebrow">UTTRUKKET KILDETEKST · {document.id}</span>
+          <h2 id="document-dialog-title">{document.name}</h2>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Lukk dokument"
+          onClick={onClose}
+        >
+          <X size={20} />
+        </Button>
+      </div>
+      <pre>{document.text}</pre>
+      <div className="dialog-footer">
+        <span>
+          {document.text.length.toLocaleString("nb-NO")} tegn · Ingen
+          sidereferanser
+        </span>
+        <Button variant="outline" size="sm" onClick={download}>
+          <ArrowDownToLine size={14} />
+          Last ned tekst
+        </Button>
+      </div>
+    </dialog>
+  );
+}

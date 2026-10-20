@@ -1,0 +1,13 @@
+SYNTETISK DEMODOKUMENT – internt eksempel.
+SALG TIL LEVERANSE / FJORDLOGISTIKK
+Fra: salgsteamet i Nordlys Programvare AS
+Til: prosjektleder og implementeringsteam
+Dato: 18. september 2026
+
+Prosjektet gjelder oppsett og oppstart av Nordlys Prosjekt hos Fjordlogistikk.
+Planlagt produksjonssetting er 15. desember 2026.
+Fem superbrukere skal få to kursøkter før løsningen tas i bruk.
+Prosjektleder sender kunden en skriftlig statusrapport hver fredag frem til oppstart.
+Historiske fakturaer skal ikke migreres; dette er utenfor avtalt prosjektomfang.
+
+Prosjektleder avtaler oppstartsmøte med kunden. Kunden er positiv og ønsker en enkel innføring.

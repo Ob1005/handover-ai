@@ -1,0 +1,22 @@
+SYNTETISK DEMODOKUMENT – ingen reelle kunder eller avtaler.
+KUNDEAVTALE / IMPLEMENTERING
+Leverandør: Nordlys Programvare AS (fiktiv)
+Kunde: Fjordlogistikk AS (fiktiv)
+Signert: 15. september 2026 (syntetisk signering)
+
+1. Leveranse
+Nordlys Programvare AS skal konfigurere og sette i drift Nordlys Prosjekt for Fjordlogistikk AS.
+Integrasjon med kundens ERP-system, Visma Business, er inkludert i leveransen.
+
+2. Fremdrift
+Løsningen skal være klar for produksjonssetting senest 1. desember 2026.
+Leverandøren skal sende skriftlig prosjektstatus til kunden hver fredag frem til produksjonssetting.
+
+3. Opplæring
+Leverandøren skal gjennomføre to opplæringsøkter for fem nøkkelbrukere før produksjonssetting.
+
+4. Kundens ansvar
+Kunden skal levere kvalitetssikrede kundedata i avtalt CSV-format senest 1. november 2026.
+
+5. Avgrensning
+Migrering av historiske fakturaer er ikke inkludert i prosjektets omfang.
