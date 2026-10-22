@@ -37,6 +37,7 @@ import {
   type Proposal,
 } from "@/lib/proposal";
 import { checkDemoProposal, createDemoProposal } from "@/lib/proposal-demo";
+import { canGenerateProposal } from "@/lib/review";
 
 type ProposalActivity = "generation" | "verification" | null;
 export function ProposalPanel({
@@ -66,6 +67,7 @@ export function ProposalPanel({
   useEffect(() => () => controller.current?.abort(), []);
 
   const signature = reviewSignature(analysis, reviews);
+  const readyForProposal = allReviewed && canGenerateProposal(analysis, reviews);
   const stale = !!proposal && signature !== sourceSignature;
   const working = activity !== null;
   const validText = draftDocumentSafe(text);
@@ -89,7 +91,7 @@ export function ProposalPanel({
     check,
     analysis,
   );
-  const canApprove = freshCheck && allReviewed && !working;
+  const canApprove = freshCheck && readyForProposal && !working;
   const complete = hasCompleteBaseline(analysis, check);
   const notEvaluated =
     check?.findings.filter((f) => f.evaluationStatus !== "evaluated").length ??
@@ -123,7 +125,7 @@ export function ProposalPanel({
     if (
       inFlight.current ||
       !syntheticConfirmed ||
-      !allReviewed ||
+      !readyForProposal ||
       (proposal && !stale)
     )
       return;
@@ -163,7 +165,7 @@ export function ProposalPanel({
       !validText ||
       !withinBudget ||
       stale ||
-      !allReviewed ||
+      !readyForProposal ||
       freshCheck
     )
       return;
@@ -226,46 +228,50 @@ export function ProposalPanel({
     URL.revokeObjectURL(url);
   }
 
-  if (!allReviewed && !proposal) return null;
+  if (!analysis.findings.length || (!readyForProposal && !proposal)) return null;
   return (
     <section className="proposal-section" aria-labelledby="proposal-title">
       <div className="section-heading">
         <div>
           <div className="eyebrow">STEG 04 · GENERER FORSLAG</div>
-          <h2 id="proposal-title">Forslag til oppdatert overleveringsnotat</h2>
+          <h2 id="proposal-title">Oppdatert overleveringsnotat</h2>
           <p>
-            Bruk vurderingene dine til å utarbeide et nytt notat. Kundeavtalen
-            beholdes uendret.
+            Se gjennom utkastet, kontroller endringene og godkjenn notatet.
           </p>
         </div>
       </div>
-      <div className="proposal-action">
-        <div>
-          <strong>
-            {allReviewed ? "Alle nødvendige vurderinger er fullført" : "Vurderingene er endret"}
-          </strong>
-          <p>
-            Bekreftede funn og kommentarer tas med som grunnlag. Avviste funn
-            skal ikke føre til automatiske rettelser.
-          </p>
-        </div>
-        <Button
-          onClick={generate}
-          disabled={
-            working ||
-            !syntheticConfirmed ||
-            !allReviewed ||
-            (!!proposal && !stale)
-          }
-        >
-          {activity === "generation" ? (
-            <LoaderCircle className="spin" size={16} />
-          ) : (
-            <FilePenLine size={16} />
+      {(!proposal || stale) && (
+        <div className="proposal-action">
+          <div>
+            <strong>
+              {readyForProposal ? "Klar for et nytt utkast" : "Vurderingene er endret"}
+            </strong>
+            <p>
+              Bygger på bekreftede funn og kommentarene dine. Avviste funn rettes ikke automatisk.
+            </p>
+          </div>
+          <Button
+            onClick={generate}
+            disabled={
+              working ||
+              !syntheticConfirmed ||
+              !readyForProposal ||
+              (!!proposal && !stale)
+            }
+          >
+            {activity === "generation" ? (
+              <LoaderCircle className="spin" size={16} />
+            ) : (
+              <FilePenLine size={16} />
           )}
-          {activity === "generation" ? "Lager forslag …" : "Oppdater forslag"}
+            {activity === "generation"
+              ? "Lager forslag …"
+              : proposal
+                ? "Oppdater forslag"
+                : "Generer forslag"}
         </Button>
       </div>
+      )}
       {error && (
         <p className="proposal-error" role="alert">
           <TriangleAlert size={16} />
@@ -274,14 +280,12 @@ export function ProposalPanel({
       )}
       {activity === "generation" && (
         <p role="status" className="proposal-note">
-          AI utarbeider et utkast fra dokumentene og vurderingene. Dette kan ta
-          opptil 60 sekunder.
+          Lager utkast fra dokumentene og vurderingene dine. Det kan ta opptil ett minutt.
         </p>
       )}
       {!syntheticConfirmed && (
         <p className="proposal-note">
-          Bekreft øverst at dokumentene er syntetiske før du genererer eller
-          analyserer forslaget.
+          Bekreft øverst at dokumentene er syntetiske for å fortsette.
         </p>
       )}
       {proposal && (
@@ -291,28 +295,27 @@ export function ProposalPanel({
               <Sparkles size={15} />
               <strong>
                 {proposal.mode === "demo"
-                  ? "Demo · regelbasert forslag, ingen AI-forespørsel"
+                  ? "Demoforslag · ingen AI-forespørsel"
                   : `AI-generert forslag · ${proposal.model}`}
               </strong>
             </span>
             <span>
               {approved && canApprove
-                ? "Godkjent av reviewer"
-                : "Utkast · ikke godkjent"}
+                ? "Godkjent av deg"
+                : "Utkast"}
             </span>
           </div>
           {stale && (
             <p className="proposal-error" role="status">
-              Vurderinger eller kommentarer er endret etter at forslaget ble
-              laget. Vurder potensielt manglende funn og funn som må avklares, og trykk «Oppdater forslag» igjen før ny
-              kontroll og godkjenning.
+              Vurderingene eller kommentarene er endret. Fullfør nødvendige vurderinger og velg
+              «Oppdater forslag» før ny kontroll og godkjenning.
             </p>
           )}
           <div className="proposal-grid">
             <div className="proposal-editor">
               <label htmlFor="proposal-text">
-                Oppdatert overleveringsnotat{" "}
-                <span>Du kan redigere teksten før kontroll.</span>
+                Rediger utkastet{" "}
+                <span>Endringer må kontrolleres på nytt før godkjenning.</span>
               </label>
               <textarea
                 id="proposal-text"
@@ -326,7 +329,7 @@ export function ProposalPanel({
               <div className="proposal-editor-footer">
                 <span>
                   {text.length.toLocaleString("nb-NO")} /{" "}
-                  {draftBudget.toLocaleString("nb-NO")} tilgjengelige tegn
+                  {draftBudget.toLocaleString("nb-NO")} tegn
                 </span>
                 <Button
                   variant="ghost"
@@ -340,42 +343,18 @@ export function ProposalPanel({
               </div>
               {(!validText || !withinBudget) && (
                 <p className="proposal-error" role="status">
-                  Forslaget må inneholde minst 20 tegn og være innenfor det
-                  samlede tekstbudsjettet. Maksimalt{" "}
-                  {draftBudget.toLocaleString("nb-NO")} tegn er tilgjengelig for
-                  dette notatet.
+                  Notatet må inneholde mellom 20 og{" "}
+                  {draftBudget.toLocaleString("nb-NO")} tegn for å holde seg innenfor den samlede tekstgrensen.
                 </p>
               )}
             </div>
             <aside
               className="proposal-changes"
-              aria-label="Foreslåtte endringer"
+              aria-label="Oppfølging og endringsoversikt"
             >
-              <h3>Foreslåtte endringer</h3>
-              {proposal.changes.length ? (
-                <ul>
-                  {proposal.changes.map((change, i) => (
-                    <li key={`${change.findingId}-${i}`}>
-                      <strong>
-                        {
-                          analysis.findings.find(
-                            (f) => f.id === change.findingId,
-                          )?.title
-                        }
-                      </strong>
-                      <p>{change.summary}</p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>
-                  Ingen konkrete endringer foreslått ut fra de bekreftede
-                  funnene.
-                </p>
-              )}
               {proposal.followUps.length > 0 && (
                 <>
-                  <h3>Til manuell avklaring</h3>
+                  <h3>Krever fortsatt oppfølging</h3>
                   <ul>
                     {proposal.followUps.map((item, i) => (
                       <li key={i}>{item}</li>
@@ -383,10 +362,30 @@ export function ProposalPanel({
                   </ul>
                 </>
               )}
-              <p className="proposal-note">
-                Endringslisten beskriver det genererte utkastet. Manuelle
-                redigeringer vises i teksten og må kontrolleres på nytt.
-              </p>
+              <details className="proposal-change-summary">
+                <summary>Endringsoversikt fra {proposal.mode === "demo" ? "demoen" : "AI"}</summary>
+                <p className="proposal-note">
+                  Gjelder det genererte utkastet. Bruk tekstsammenligningen for å se alle endringer, også dine egne.
+                </p>
+                {proposal.changes.length ? (
+                  <ul>
+                    {proposal.changes.map((change, i) => (
+                      <li key={`${change.findingId}-${i}`}>
+                        <strong>
+                          {
+                            analysis.findings.find(
+                              (f) => f.id === change.findingId,
+                            )?.title
+                          }
+                        </strong>
+                        <p>{change.summary}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>Ingen konkrete endringer foreslått.</p>
+                )}
+              </details>
             </aside>
           </div>
           <TextComparison
@@ -394,7 +393,7 @@ export function ProposalPanel({
             draft={text}
           />
           <details className="proposal-original">
-            <summary>Se opprinnelig overleveringsnotat</summary>
+            <summary>Opprinnelig overleveringsnotat</summary>
             <pre>{analysis.documents.handover.text}</pre>
           </details>
           <div className="proposal-buttons">
@@ -406,7 +405,7 @@ export function ProposalPanel({
                 !validText ||
                 !withinBudget ||
                 stale ||
-                !allReviewed ||
+                !readyForProposal ||
                 freshCheck
               }
             >
@@ -418,8 +417,8 @@ export function ProposalPanel({
               {activity === "verification"
                 ? "Kontrollerer forslaget …"
                 : freshCheck
-                  ? "Forslaget er analysert"
-                  : "Analyser forslaget mot kundeavtalen"}
+                  ? "Utkastet er kontrollert"
+                  : "Kontroller utkastet"}
             </Button>
             <Button
               variant="outline"
@@ -431,63 +430,61 @@ export function ProposalPanel({
             </Button>
           </div>
           <p className="proposal-note">
-            En ny kontroll vurderer denne tekstversjonen mot de samme
-            opprinnelige funnene. Redigering av teksten eller vurderingene gjør
-            kontrollen ugyldig.
+            Kontrollen bruker alle opprinnelige funn. Endrer du tekst eller vurderinger, må du kontrollere på nytt.
           </p>
           {activity === "verification" && (
             <p role="status" className="proposal-note">
-              Forslaget analyseres. Godkjenning blir tilgjengelig når alle
-              opprinnelige funn er vurdert.
+              Kontrollerer alle opprinnelige funn mot utkastet.
             </p>
           )}
           {check && (
             <div className="proposal-check">
               <div className="section-heading">
                 <div>
-                  <h3>Kontroll av det nye forslaget</h3>
+                  <h3>Sluttkontroll</h3>
                   <p>
                     {check.mode === "demo"
-                      ? "Demokontroll av kjente formuleringer. Omskrivinger krever live AI eller manuell kontroll."
-                      : `Ny live-analyse · ${check.model}`}
+                      ? "Demokontroll uten API-kall. Egne omskrivinger må kontrolleres manuelt eller med AI."
+                      : `AI-kontroll · ${check.model}`}
                   </p>
                 </div>
                 <span className="unresolved">
-                  {remaining} mulige mangler i overleveringen
+                  {remaining === 0 ? "Ingen mangler flagget" : `${remaining} krever gjennomgang`}
                 </span>
               </div>
               <p className="proposal-note">
                 {analysis.findings.length - notEvaluated} av{" "}
-                {analysis.findings.length} opprinnelige funn vurdert ·{" "}
-                {check.findings.length - remaining} dekket, hvorav {transferredFollowUps} overført med fortsatt oppfølging · {unverified} med
-                uverifiserte sitater.
+                {analysis.findings.length} opprinnelige funn kontrollert ·{" "}
+                {check.findings.length - remaining} dekket
+                {transferredFollowUps > 0 && `, ${transferredFollowUps} med oppfølging`}
+                {unverified > 0 && ` · ${unverified} med uverifiserte sitater`}.
                 {check.findings.length === 0 &&
-                  " Ingen forpliktelser ble identifisert. Dette må kontrolleres manuelt."}
+                  " Ingen krav identifisert. Kontroller dokumentene manuelt."}
               </p>
               {!complete && (
                 <p className="proposal-error" role="alert">
                   {notEvaluated
-                    ? `${notEvaluated} opprinnelige funn er ikke vurdert entydig.`
+                    ? `${notEvaluated} opprinnelige funn mangler en entydig vurdering.`
                     : "Kontrollen dekker ikke hele det opprinnelige kildegrunnlaget."}{" "}
-                  Godkjenning er sperret. Kjør kontrollen på nytt.
+                  Kjør kontrollen på nytt før du godkjenner.
                 </p>
               )}
               {check.findings.map((finding, i) => (
                 <div key={finding.id} className="baseline-finding">
                   <p className="proposal-note">
-                    {finding.id} · Opprinnelig:{" "}
+                    Før:{" "}
                     {
                       classificationLabels[
                         analysis.findings.find((f) => f.id === finding.id)
                           ?.classification ?? "needs_clarification"
                       ]
                     }{" "}
-                    · Ny kontroll:{" "}
+                    · Nå:{" "}
                     {finding.classification === "covered" && needsFollowUp(finding)
-                      ? "Overført – krever oppfølging"
+                      ? "Overført med oppfølging"
                       : classificationLabels[finding.classification]}
                     {finding.evaluationStatus === "not_evaluated" &&
-                      " · Ikke vurdert – godkjenning sperret"}
+                      " · Ikke vurdert. Godkjenning er sperret."}
                   </p>
                   <FindingCard
                     key={`${check.id}-${finding.id}`}
@@ -503,16 +500,18 @@ export function ProposalPanel({
                 <div>
                   <strong>
                     {approved && canApprove
-                      ? "Forslaget er godkjent av deg"
-                      : "Kontroller endringene før du godkjenner"}
+                      ? "Notatet er godkjent av deg"
+                      : "Godkjenn overleveringsnotatet"}
                   </strong>
                   <p>
                     {!complete
-                      ? "Alle opprinnelige funn må være vurdert før du kan godkjenne notatet."
+                      ? "Alle opprinnelige funn må være kontrollert før du kan godkjenne."
                       : remaining
-                        ? `Kontrollen viser fortsatt ${remaining} mulige mangler eller avklaringsbehov. Undersøk disse før du tar stilling til notatet.`
-                        : "Ingen ytterligere mangler i overleveringen ble flagget. Saker merket «Overført – krever oppfølging» er fortsatt åpne og må følges opp av leveringsteamet. Det er fortsatt du som vurderer innholdet."}{" "}
-                    Godkjenningen gjelder bare dette interne notatet.
+                        ? `${remaining} mulige mangler eller avklaringer gjenstår. Se gjennom dem før du godkjenner.`
+                        : transferredFollowUps > 0
+                          ? "Ingen mangler flagget. Åpne saker må fortsatt følges opp av leveringsteamet."
+                          : "Ingen mangler flagget. Kontroller innholdet før du godkjenner."}{" "}
+                    Du godkjenner det interne notatet, ikke nye avtalevilkår.
                   </p>
                 </div>
                 <Button
@@ -522,7 +521,7 @@ export function ProposalPanel({
                   }}
                 >
                   <Check size={16} />
-                  {approved && canApprove ? "Godkjent" : "Godkjenn forslag"}
+                  {approved && canApprove ? "Godkjent" : "Godkjenn notatet"}
                 </Button>
               </div>
             </div>

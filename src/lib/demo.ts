@@ -135,32 +135,109 @@ export const demoResponse = aiResponseSchema.parse({
     ),
   ],
 });
-// The original two-document fixtures above remain available for regression tests.
+// Keep the original two-document fixtures unchanged for regression tests.
+// The current demo uses a more natural document style, with the same issues.
+const currentAgreement = `SYNTETISK EKSEMPEL. Selskaper og personer er oppdiktet.
+AVTALE OM INNFØRING AV NORDLYS PROSJEKT
+
+Leverandør: Nordlys Programvare AS
+Kunde: Fjordlogistikk AS
+Signert: 15. september 2026
+
+1. Leveranse
+Nordlys Programvare AS skal konfigurere og sette i drift Nordlys Prosjekt for Fjordlogistikk AS.
+Integrasjon med kundens ERP-system, Visma Business, er inkludert i leveransen.
+
+2. Fremdrift og rapportering
+Løsningen skal være klar for produksjonssetting senest 1. desember 2026.
+Leverandøren skal sende skriftlig prosjektstatus til kunden hver fredag frem til produksjonssetting.
+
+3. Opplæring
+Leverandøren skal gjennomføre to opplæringsøkter for fem nøkkelbrukere før produksjonssetting.
+
+4. Kundens ansvar
+Kunden skal levere kvalitetssikrede kundedata i avtalt CSV-format senest 1. november 2026.
+
+5. Avgrensning
+Migrering av historiske fakturaer er ikke inkludert i prosjektets omfang.`;
+
+const currentHandover = `OVERLEVERING FRA SALG: FJORDLOGISTIKK
+Fra: Marius Berg, salg
+Til: prosjektleder og leveringsteam
+Dato: 18. september 2026
+
+- Nordlys Prosjekt: oppsett og oppstart hos Fjordlogistikk.
+- Sikter på produksjonssetting 15. desember 2026.
+- To kursøkter for fem superbrukere før oppstart.
+- Prosjektleder sender skriftlig status til kunden hver fredag frem til oppstart.
+- Historiske fakturaer skal ikke migreres. Dette er utenfor avtalt prosjektomfang.
+
+Prosjektleder booker oppstartsmøtet med Kari hos kunden. Ta kontakt neste uke.`;
+
+const currentCorrespondence = `SYNTETISK EKSEMPEL. Selskaper og personer er oppdiktet.
+Fra: Kari Holm, Fjordlogistikk AS
+Til: Marius Berg, Nordlys Programvare AS
+Dato: 18. september 2026
+Emne: Oppstart og fakturahistorikk
+
+Hei Marius,
+
+Takk for gjennomgangen i går. Vi forventer at alle historiske fakturaer migreres som del av prosjektet. Økonomi bruker historikken når de følger opp kundene, så det er viktig at vi har den med fra start.
+
+Vi ønsker at oppstartsmøtet holdes digitalt på Teams. Da får vi med kollegaene i Bergen også.
+
+Jeg har notert dette fra avtalen: «Integrasjon med kundens ERP-system, Visma Business, er inkludert i leveransen.» Fint om dere tar det med i planen for oppstarten.
+
+Hilsen Kari`;
+
 export const multiDemoDocuments = documentsSchema.parse({
-  ...demoDocuments,
+  agreement: {
+    ...demoDocuments.agreement,
+    text: currentAgreement,
+    bytes: new TextEncoder().encode(currentAgreement).length,
+  },
+  handover: {
+    ...demoDocuments.handover,
+    text: currentHandover,
+    bytes: new TextEncoder().encode(currentHandover).length,
+  },
   correspondence: {
     id: "correspondence",
     documentType: "correspondence",
     type: "txt",
     name: "Fjordlogistikk_Kundekorrespondanse.txt",
-    bytes: 620,
-    text: `SYNTETISK KUNDE-E-POST – fiktivt eksempel, ingen personopplysninger.
-Fra: prosjektkontakt i Fjordlogistikk AS (fiktiv)
-Til: salgsteamet i Nordlys Programvare AS (fiktiv)
-Dato: 18. september 2026
-
-Vi forventer at alle historiske fakturaer migreres som del av prosjektet.
-Vi ønsker at oppstartsmøtet holdes digitalt på Teams.
-Integrasjon med kundens ERP-system, Visma Business, er inkludert i leveransen.
-Ønskene må avklares med prosjektleder; denne e-posten endrer ikke den signerte avtalen.`,
+    bytes: new TextEncoder().encode(currentCorrespondence).length,
+    text: currentCorrespondence,
   },
 });
+const currentHandoverQuotes: Partial<Record<AiFinding["category"], string>> = {
+  deadlines: "Sikter på produksjonssetting 15. desember 2026.",
+  training: "To kursøkter for fem superbrukere før oppstart.",
+  service: "Prosjektleder sender skriftlig status til kunden hver fredag frem til oppstart.",
+  exclusions: "Historiske fakturaer skal ikke migreres. Dette er utenfor avtalt prosjektomfang.",
+  deliverables: "Nordlys Prosjekt: oppsett og oppstart hos Fjordlogistikk.",
+};
+const currentDescriptions: Partial<Record<AiFinding["category"], string>> = {
+  integrations: "Integrasjon med Visma Business inngår i leveransen.",
+  deadlines: "Avtalt frist for produksjonssetting er 1. desember 2026.",
+  customer_responsibilities: "Kunden skal levere kvalitetssikrede CSV-data innen 1. november.",
+  training: "Fem nøkkelbrukere skal få to opplæringsøkter før oppstart.",
+  service: "Kunden skal få skriftlig prosjektstatus hver fredag frem til oppstart.",
+  exclusions: "Kunden forventer fakturamigrering, selv om avtalen utelukker dette.",
+  deliverables: "Leverandøren skal konfigurere og sette i drift Nordlys Prosjekt.",
+};
 export const multiDemoResponse = aiResponseSchema.parse({
   findings: [
-    ...demoResponse.findings.map((f): AiFinding =>
-      f.category === "exclusions"
+    ...demoResponse.findings.map((original): AiFinding => {
+      const f = {
+        ...original,
+        description: currentDescriptions[original.category] ?? original.description,
+        handoverQuote: currentHandoverQuotes[original.category] ?? null,
+      };
+      return f.category === "exclusions"
         ? {
             ...f,
+            title: "Fakturamigrering: avtale og kundeforventning",
             informationType: "conflict",
             requiresConfirmation: true,
             classification: "needs_clarification",
@@ -172,7 +249,7 @@ export const multiDemoResponse = aiResponseSchema.parse({
               },
             ],
             explanation:
-              "E-posten forventer fakturamigrering, men signert avtale utelukker dette. Avtalen er førende. Avklar forventningen med kunden; ikke legg migrering inn som en avtalt leveranse.",
+              "Kunden forventer migrering, mens avtalen og notatet sier at den ikke inngår. Forventningen må avklares og synliggjøres for leveringsteamet.",
           }
         : f.category === "integrations"
           ? {
@@ -181,12 +258,12 @@ export const multiDemoResponse = aiResponseSchema.parse({
                 { documentId: "correspondence", quote: f.sourceQuote },
               ],
             }
-          : f,
-    ),
+          : f;
+    }),
     {
       title: "Ønske om digitalt oppstartsmøte",
       description:
-        "Kunden ønsker Teams som møteform. Dette er et ønske fra salgsfasen, ikke et bekreftet avtalevilkår.",
+        "Kunden ønsker oppstartsmøtet på Teams, slik at kollegaene i Bergen kan delta.",
       category: "implementation",
       classification: "needs_clarification",
       certainty: "explicit",
@@ -197,7 +274,7 @@ export const multiDemoResponse = aiResponseSchema.parse({
       requiresConfirmation: true,
       handoverQuote: null,
       explanation:
-        "Ønsket er ikke overført til notatet. Prosjektleder bør bekrefte møteformen med kunden før det behandles som en avtale.",
+        "Notatet sier at prosjektleder skal booke et møte, men utelater ønsket om Teams. Ta det med som et åpent punkt til prosjektleder.",
     },
   ],
 });

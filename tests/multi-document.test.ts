@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   demoDocuments,
   demoResponse,
@@ -351,6 +352,19 @@ describe("source verification, authority and duplicate information", () => {
 });
 
 describe("multi-source proposal, fixed baseline and demo", () => {
+  it("keeps current example downloads, metadata and all eight verified demo findings in sync", () => {
+    for (const document of Object.values(multiDemoDocuments)) {
+      expect(readFileSync(`public/examples/${document.name}`, "utf8").trim())
+        .toBe(document.text);
+      expect(document.bytes).toBe(new TextEncoder().encode(document.text).length);
+    }
+    const { findings } = getDemoAnalysis();
+    expect(findings).toHaveLength(8);
+    expect(findings.every(f => f.evidence.status === "verified")).toBe(true);
+    expect(findings.filter(f => f.classification === "covered")).toHaveLength(3);
+    expect(findings.filter(f => f.classification === "potentially_missing")).toHaveLength(2);
+    expect(findings.filter(f => f.classification === "needs_clarification")).toHaveLength(3);
+  });
   it("distinguishes transferred open issues from missing information in the demo", () => {
     const input = reviewed();
     const draft = createDemoProposal(input);
@@ -392,7 +406,7 @@ describe("multi-source proposal, fixed baseline and demo", () => {
     const input = reviewed();
     const before = structuredClone(input.analysis);
     const proposal = createDemoProposal(input);
-    expect(proposal.text).toContain("Ikke et nytt bekreftet avtalevilkår");
+    expect(proposal.text).toContain("Punktet er åpent og endrer ikke avtalen");
     expect(proposal.followUps.join(" ")).toContain("historiske fakturaer");
     expect(proposal.followUps.join(" ")).toContain("Teams");
     expect(proposal.text).toContain("Historiske fakturaer skal ikke migreres");

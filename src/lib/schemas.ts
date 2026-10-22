@@ -27,15 +27,15 @@ export type DocumentId = (typeof documentIds)[number];
 export type SourceId = (typeof sourceIds)[number];
 export const documentLabels: Record<DocumentId, string> = {
   agreement: "Signert kundeavtale",
-  handover: "Interne overleveringsnotater",
+  handover: "Overleveringsnotat",
   proposal: "Tilbud eller salgsforslag",
   correspondence: "Kundekorrespondanse",
-  meeting_notes: "Møtenotater eller salgsinformasjon",
+  meeting_notes: "Møtenotater",
 };
 export const informationLabels = {
   contractual: "Avtaleforpliktelse",
   follow_up: "Opplysning fra salgsfasen",
-  conflict: "Kildekonflikt – må avklares",
+  conflict: "Kildekonflikt",
 };
 export const classifications = [
   "covered",

@@ -16,6 +16,7 @@ import {
 } from "../src/lib/evidence";
 import { demoDocuments, demoResponse, getDemoAnalysis } from "../src/lib/demo";
 import {
+  canGenerateProposal,
   getWorkflowStep,
   parseSession,
   reviewProgress,
@@ -139,6 +140,13 @@ describe("AI schema and evidence", () => {
   });
 });
 describe("human review and browser session", () => {
+  it("keeps an empty analysis at review instead of marking the workflow complete", () => {
+    const result = { ...getDemoAnalysis(false), findings: [] };
+    expect(reviewProgress(result.findings, {})).toEqual({ reviewed: 0, unresolved: 0, total: 0 });
+    expect(canGenerateProposal(result, {})).toBe(false);
+    expect(canGenerateProposal(null, {})).toBe(false);
+    expect(getWorkflowStep(result.documents, null, result, {})).toBe(3);
+  });
   it("waits for every review before opening proposal generation", () => {
     const result = { ...getDemoAnalysis(false), mode: "live" as const };
     expect(getWorkflowStep(demoDocuments, "analysis", null, {})).toBe(2);

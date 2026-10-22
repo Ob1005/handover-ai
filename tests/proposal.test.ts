@@ -13,7 +13,7 @@ import {
   createDemoProposal,
   checkDemoProposal,
 } from "../src/lib/proposal-demo";
-import { updateReview, reviewProgress, getWorkflowStep } from "../src/lib/review";
+import { canGenerateProposal, updateReview, reviewProgress, getWorkflowStep } from "../src/lib/review";
 
 const { generate } = vi.hoisted(() => ({ generate: vi.fn() }));
 vi.mock("@google/genai", () => ({
@@ -61,9 +61,20 @@ describe("proposal input, source handling and decisions", () => {
     data.analysis.findings = data.analysis.findings.filter(f => f.classification === "covered");
     data.reviews = {};
     expect(proposalRequestSchema.safeParse(data).success).toBe(true);
+    expect(canGenerateProposal(data.analysis, data.reviews)).toBe(true);
     expect(reviewProgress(data.analysis.findings, {})).toEqual({ reviewed: 0, unresolved: 0, total: 0 });
     expect(() => createDemoProposal(data)).not.toThrow();
     expect(data.reviews).toEqual({});
+  });
+  it("does not treat an empty initial analysis as ready for a proposal", () => {
+    const data = input();
+    data.analysis.findings = [];
+    data.reviews = {};
+    expect(canGenerateProposal(data.analysis, data.reviews)).toBe(false);
+    expect(proposalRequestSchema.safeParse(data).success).toBe(false);
+    expect(() => proposalContext(data)).toThrow(/Analysen må inneholde funn/);
+    expect(() => createDemoProposal(data)).toThrow(/Analysen må inneholde funn/);
+    expect(getWorkflowStep(data.analysis.documents, null, data.analysis, {})).toBe(3);
   });
   it.each(["potentially_missing", "needs_clarification"] as const)("blocks an unreviewed %s finding", classification => {
     const data = input();
@@ -292,6 +303,18 @@ describe("proposal HTTP route and live SDK boundary (mocked)", () => {
     data.reviews[data.analysis.findings[0].id].decision = "unreviewed";
     const response = await POST(request(data));
     expect(response.status).toBe(400);
+    expect(generate).not.toHaveBeenCalled();
+  });
+  it("rejects an empty initial analysis before making an API call", async () => {
+    const data = input();
+    data.analysis.findings = [];
+    data.reviews = {};
+    const response = await POST(request(data));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "NO_FINDINGS",
+      error: expect.stringContaining("Kontroller dokumentene"),
+    });
     expect(generate).not.toHaveBeenCalled();
   });
   it("rejects invalid model output and never replaces it with demo data", async () => {

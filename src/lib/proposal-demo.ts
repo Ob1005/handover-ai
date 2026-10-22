@@ -5,8 +5,23 @@ import {
   type ProposalContent,
   type ProposalRequest,
 } from "./proposal";
-import type { AnalysisResult, UploadedDocument } from "./schemas";
+import {
+  type AnalysisResult,
+  type Finding,
+  type UploadedDocument,
+  documentLabels,
+} from "./schemas";
 import { createReanalysis, reanalysisInput } from "./reanalysis";
+
+function followUpLine(finding: Finding) {
+  const sources = [
+    `${documentLabels[finding.sourceDocumentId]}: «${finding.sourceQuote}»`,
+    ...finding.relatedSources.map(
+      (ref) => `${documentLabels[ref.documentId]}: «${ref.quote}»`,
+    ),
+  ];
+  return `Avklar «${finding.title}». ${sources.join(". ")}. Punktet er åpent og endrer ikke avtalen.`;
+}
 
 export function createDemoProposal(input: ProposalRequest) {
   const { analysis, reviews } = proposalRequestSchema.parse(input);
@@ -30,7 +45,7 @@ export function createDemoProposal(input: ProposalRequest) {
       )
     ) {
       followUps.push(
-        `Avklar «${finding.title}» manuelt. Kildesitatet kunne ikke verifiseres og er ikke lagt til som et faktum.`,
+        `Avklar «${finding.title}» manuelt. Sitatet finnes ikke i kilden, så opplysningen er ikke lagt til.`,
       );
       continue;
     }
@@ -43,9 +58,7 @@ export function createDemoProposal(input: ProposalRequest) {
         analysis.documents[finding.sourceDocumentId]?.text ?? "",
       )
     ) {
-      followUps.push(
-        `Avklar «${finding.title}» (${finding.sourceDocumentId}): «${finding.sourceQuote}»${finding.relatedSources.map((ref) => ` [${ref.documentId}: ${ref.quote}]`).join("")}. Ikke et nytt bekreftet avtalevilkår.`,
-      );
+      followUps.push(followUpLine(finding));
       continue;
     }
     const previous = text;
@@ -56,11 +69,11 @@ export function createDemoProposal(input: ProposalRequest) {
     if (text !== previous)
       changes.push({
         findingId: finding.id,
-        summary: `Oppdatert «${finding.title}» med den verifiserte avtaleteksten.`,
+        summary: `Oppdatert «${finding.title}» med tekst fra avtalen.`,
       });
   }
   if (followUps.length)
-    text += `\n\nREVIEWERNOTATER – MÅ KONTROLLERES\n${followUps.join("\n")}`;
+    text += `\n\nÅPNE PUNKTER FOR PROSJEKTLEDER\n${followUps.join("\n\n")}`;
   return createProposal(
     { text, changes, followUps },
     input,
@@ -85,8 +98,8 @@ export function checkDemoProposal(
     const conflictingDate = f.category === "deadlines" && originalPresent;
     // Recognise only the full, known demo follow-up line, including all sources
     // and the qualification that this is not a new contractual commitment.
-    const followUpLine = `Avklar «${f.title}» (${f.sourceDocumentId}): «${f.sourceQuote}»${f.relatedSources.map((ref) => ` [${ref.documentId}: ${ref.quote}]`).join("")}. Ikke et nytt bekreftet avtalevilkår.`;
-    const followUpDocumented = text.includes(followUpLine);
+    const knownFollowUp = followUpLine(f);
+    const followUpDocumented = text.includes(knownFollowUp);
     const covered = followUpDocumented || (
       !conflictingDate &&
       (agreementPresent || (f.classification === "covered" && originalPresent)));
@@ -99,19 +112,19 @@ export function checkDemoProposal(
           ? ("needs_clarification" as const)
           : ("potentially_missing" as const),
       handoverQuote: followUpDocumented
-        ? followUpLine
+        ? knownFollowUp
         : agreementPresent
         ? f.sourceQuote
         : originalPresent
           ? f.handoverQuote
           : null,
       explanation: followUpDocumented
-        ? "Den åpne saken og kildene er overført som oppfølging, uten å bli et nytt avtalevilkår. Saken er fortsatt ikke avklart."
+        ? "Den åpne saken og kildene er med i notatet. Prosjektleder må fortsatt følge opp."
         : covered
-        ? "Demokontrollen fant et kjent avtaleutdrag eller en forhåndsvalidert formulering i forslaget."
+        ? "Punktet er med i forslaget. Demoen kjenner igjen ordlyden."
         : conflictingDate
-          ? "Den opprinnelige, motstridende datoen finnes fortsatt i forslaget."
-          : "Demokontrollen fant ikke den kjente formuleringen. Omskrevet innhold må undersøkes med live AI eller manuelt.",
+          ? "Forslaget inneholder fortsatt datoen som er i strid med avtalen."
+          : "Demoen kjenner ikke igjen formuleringen. Kontroller manuelt, eller analyser den med AI.",
     };
   });
   return createReanalysis(

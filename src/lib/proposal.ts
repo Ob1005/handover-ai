@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { reviewProgress } from "./review";
+import { canGenerateProposal } from "./review";
 import {
   analysisSchema,
   documentSchema,
@@ -28,13 +28,17 @@ export const proposalRequestSchema = z
       [...ids].some((id) => id.length > 100)
     )
       ctx.addIssue({ code: "custom", message: "Ugyldige funn-ID-er." });
-    if (
-      reviewProgress(analysis.findings, reviews).unresolved > 0
-    )
+    if (!canGenerateProposal(analysis, reviews))
       ctx.addIssue({
         code: "custom",
+        path: ["analysis", "findings"],
+        params: {
+          code: analysis.findings.length === 0 ? "NO_FINDINGS" : "REVIEW_REQUIRED",
+        },
         message:
-          "Potensielt manglende funn og funn som må avklares må være bekreftet eller avvist før forslag kan genereres.",
+          analysis.findings.length === 0
+            ? "Analysen må inneholde funn før et forslag kan genereres. Kontroller dokumentene og kjør analysen på nytt."
+            : "Potensielt manglende funn og funn som må avklares må være bekreftet eller avvist før forslag kan genereres.",
       });
     if (Object.keys(reviews).some((id) => !ids.has(id)))
       ctx.addIssue({

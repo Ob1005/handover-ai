@@ -1,4 +1,5 @@
 import "server-only";
+import { duplicateDocumentMessage } from "@/lib/document-validation";
 import { analyzeRequestSchema } from "@/lib/schemas";
 import { AppError, errorResponse } from "@/lib/errors";
 import { analyzeDocuments } from "@/lib/server/gemini";
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
       throw new AppError(
         "Ugyldige dokumenter. Avtale og overlevering kreves, maks tre valgfrie kilder, 20–20 000 tegn per fil og 40 000 tegn samlet. Bekreft syntetisk innhold.",
       );
+    const duplicate = duplicateDocumentMessage(parsed.data);
+    if (duplicate) throw new AppError(duplicate, 400, "DUPLICATE_DOCUMENTS");
     release = acquireLimit("analysis", 5, 10 * 60_000, 1);
     const { syntheticOnly: _syntheticOnly, ...documents } = parsed.data;
     void _syntheticOnly;

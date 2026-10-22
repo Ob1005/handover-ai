@@ -1,173 +1,82 @@
 # Handover AI
 
-**Fra signert kundeavtale til en etterprøvbar overlevering.** Handover AI sammenligner en signert kundeavtale og valgfrie salgskilder med interne overleveringsnotater. Mulige mangler, forventninger og kildekonflikter vises med sitater som en fagperson kan kontrollere. Etter gjennomgangen kan AI lage et oppdatert notat som kontrolleres på nytt før manuell godkjenning.
+Handover AI sammenligner en kundeavtale og andre salgskilder med et internt overleveringsnotat. Mulige mangler og konflikter vises med kildesitater. Brukeren vurderer funnene, får et forslag til oppdatert notat og kontrollerer det før manuell godkjenning.
 
-Et portfolioprosjekt utviklet av en nyutdannet MSc-kandidat i Information Systems – Business Analytics. Prosjektet demonstrerer ett komplett arbeidsløp med prosessforståelse, fullstack-utvikling, AI-integrasjon og kvalitetssikring. Grensesnittet er på norsk. Demoen fungerer uten API-nøkkel.
+En norsk porteføljeprototype utviklet med AI-assistanse. **Bruk bare syntetiske, ikke-konfidensielle dokumenter.** Demoen krever ingen API-nøkkel.
 
-## For tekniske rekrutterere
+## Problemet
 
-| Område                | Hva prosjektet viser                                                                                       |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Forretningsforståelse | Et konkret kontrollpunkt mellom salg og prosjektleveranse, med målbare hypoteser om nytte.                 |
-| Fullstack-utvikling   | Next.js App Router, TypeScript, React, Tailwind CSS og serverbasert PDF/TXT-behandling.                    |
-| AI-integrasjon        | Offisiell Google Gen AI SDK, strukturerte svar, Zod-validering og håndtering av kvoter og feil.            |
-| Etterprøvbarhet       | Ordrette kildesitater kontrolleres deterministisk. AI-forslag og menneskelige beslutninger lagres separat. |
-| Kvalitetssikring      | Automatiske tester uten API-forbruk og en dokumentert live-evaluering med ti syntetiske dokumentpar.       |
-| Avgrensning           | Ingen database, innlogging, OCR, CRM-integrasjon eller agentrammeverk. Ett komplett arbeidsløp.            |
+Når en programvareleveranse går fra salg til prosjektleder, kan en integrasjon bli utelatt, en dato feil gjengitt eller et kundeønske fremstå som avtalt. Informasjonen kan ligge spredt i avtaler, tilbud og e-poster. Handover AI gir et kontrollpunkt før prosjektstart. Om dette reduserer tidsbruk og omarbeid, er foreløpig ikke målt.
 
-## Forretningsproblemet
+## Slik fungerer det
 
-Når en B2B-programvareavtale går fra salg til prosjektleder eller implementeringsteam, kan forpliktelser være fordelt på flere dokumenter. En ERP-integrasjon kan bli utelatt, en leveransedato feil gjengitt eller kundens dataansvar uklart. Det kan skape feil forventninger, koordinering og omarbeid.
+1. Last opp én signert kundeavtale og ett overleveringsnotat. Legg eventuelt til tilbud, kundekorrespondanse og møtenotater, én fil av hver type. Dokumenter med identisk tekst må byttes før analysen kan starte.
+2. Kjør analyse. Funn vises som **Dekket**, **Potensielt manglende** eller **Må avklares**, med sitater fra de aktuelle dokumentene.
+3. Vurder mangler og avklaringspunkter. Dekkede krav kan kontrolleres, men krever ingen beslutning. Hvis analysen ikke finner noen punkter, må du kontrollere dokumentene før du starter på nytt. Forslag krever minst ett funn.
+4. Generer og rediger et oppdatert notat. Se tekstendringene, kjør ny kontroll og godkjenn notatet manuelt. Det kan lastes ned som TXT.
 
-Handover AI undersøker om AI-støttet sammenligning med kildebelegg kan hjelpe selgere, prosjektledere og implementeringskonsulenter å oppdage slike forhold før oppstart. **Redusert omarbeid og bedre overleveringer er hypoteser, ikke dokumenterte kommersielle gevinster.** Verktøyet gir ingen juridiske avgjørelser og endrer ikke kundeavtalen.
+Avtalen er primærkilde for avtalte forpliktelser. Salgskilder kan dokumentere ønsker og konflikter, men endrer ikke avtalen. Ved ny kontroll beholdes alle opprinnelige funn og kilder. En åpen sak som er korrekt overført, vises som **Overført med oppfølging**. Den er dokumentert, men ikke løst.
 
-## Arbeidsflyt
-
-1. **Legg til dokumenter:** Bekreft syntetisk innhold. Last opp signert kundeavtale og overleveringsnotat. Valgfritt: ett tilbud, én kundekorrespondanse og ett møtenotat – inntil tre støttedokumenter. Bruk PDF med markerbar tekst eller UTF-8 TXT, og kontroller tekstuttrekket. Korrespondanse lastes opp som dokument; ingen e-postintegrasjon.
-2. **Analyser med AI:** Gemini sammenligner relevante opplysninger fra alle kildene med overleveringen og skiller avtaleforpliktelser fra salgsinformasjon og kildekonflikter. Funn klassifiseres som **Dekket**, **Potensielt manglende** eller **Må avklares**.
-3. **Vurder og avklar:** Åpne kildesitater, filtrer funn, bekreft eller avvis hvert funn og legg eventuelt til kommentar. Bekreftet betyr at du er enig i funnet, ikke at problemet er løst. Bare «Potensielt manglende» og «Må avklares» krever vurdering før du går videre. Vurdering av dekkede krav er valgfri; de beholdes i ny kontroll.
-4. **Generer forslag:** Når alle potensielt manglende funn og funn som må avklares er vurdert, vises **Oppdater forslag**. Les og rediger utkastet, se faktiske tekstendringer og kontroller det mot de opprinnelige funnene fra første analyse. Undersøk gjenstående problemer og godkjenn notatet manuelt. Last ned som TXT.
-
-Den nye kontrollen bruker de samme funn-ID-ene, opplysningene og kildesitatene som første analyse; Gemini vurderer bare dekningen i det redigerte notatet. Manglende eller dupliserte svar beholdes som **Må avklares**, og godkjenning sperres til alle opprinnelige funn er vurdert. Også et tomt modellsvar gir ett synlig avklaringspunkt per opprinnelig funn. Første klassifisering og kildegrunnlag beholdes for sammenligning.
-
-**Se faktiske tekstendringer** viser forskjellen mellom originalnotatet og gjeldende tekst i redigeringsfeltet: grønt for tillegg, rødt for slettet tekst og nøytralt for uendret innhold. Beregningen skjer lokalt, linje for linje, og oppdateres også ved manuelle redigeringer. AI-ens endringsoppsummering er separat. Ingen nye avhengigheter er lagt til.
-
-Endringer i dokumenter nullstiller analysen. Endringer i utkastet eller vurderingsgrunnlaget gjør tidligere kontroll og godkjenning ugyldig. En ny sideåpning starter med tom kontroll; ingen tidligere resultater vises automatisk.
-
-## Kilder og autoritet
-
-| Dokumentplass / stabil ID | Obligatorisk | Rolle                                                    |
-| ------------------------- | ------------ | -------------------------------------------------------- |
-| `agreement`               | Ja           | Signert kundeavtale, primærkilde for avtaleforpliktelser |
-| `handover`                | Ja           | Internnotatet som kontrolleres                           |
-| `proposal`                | Nei          | Tilbud eller salgsforslag                                |
-| `correspondence`          | Nei          | Kundekorrespondanse, for eksempel fiktiv e-post i TXT    |
-| `meeting_notes`           | Nei          | Møtenotater eller annen relevant salgsinformasjon        |
-
-Støttekilder kan vise forventninger, salgsløfter og praktiske behov, men endrer aldri avtalen automatisk. Funn merkes som **Avtaleforpliktelse**, **Opplysning fra salgsfasen** eller **Kildekonflikt**. Konflikter og opplysninger som krever bekreftelse blir **Må avklares**, selv om notatet gjengir dem. Ukomplisert salgsinformasjon kan være dekket uten å være et bekreftet avtalevilkår.
-
-Hvert funn har en primærkilde og eventuelle tilleggssitater, alle kontrollert mot den angitte filen. Gemini skal samle samme opplysning fra flere kilder i ett funn. Koden slår også sammen identiske sitater og beskrivelser innen samme kategori og beholder henvisningene. Speilvendte konfliktfunn fra ulike primærkilder samles også når kategori og hele settet av kildeutdrag er identisk. Semantiske duplikater med ulike kildeutdrag kan fortsatt forekomme.
+Velg **Prøv demo** for et ferdig eksempel med manglende ERP-integrasjon, feil dato og en kundee-post som motsier avtalens avgrensning. Demoens analyse er forhåndsberegnet. Forslag og ny kontroll bruker avgrensede lokale regler, uten Gemini-kall.
 
 ## Skjermbilder
 
-De tre første skjermbildene viser den opprinnelige todokumentversjonen. Alle bildene viser bare syntetiske eksempler fra de fiktive selskapene Nordlys Programvare AS og Fjordlogistikk AS.
+Startskjerm og dokumentopplasting:
 
-### Dokumentgrunnlag
+![Dokumentgrunnlag i Handover AI](docs/screenshots/start.jpg)
 
-![Dokumentopplasting og tom start på steg 01](docs/start-preview.png)
+Funn med kilder og menneskelig vurdering:
 
-### Kildebelegg og menneskelig vurdering
+![Gjennomgang av syntetiske demofunn](docs/screenshots/review.jpg)
 
-![Demofunn med klassifisering, kildeutdrag og vurdering](docs/demo-preview.png)
+[Se mobilvisningen](docs/screenshots/mobile.jpg).
 
-### Forslag etter fullført gjennomgang
+## Teknologi og arkitektur
 
-![Steg 04 med forslag til oppdatert overleveringsnotat](docs/proposal-preview.png)
-
-### Kildekonflikt i flerdokumentversjonen
-
-![Avtalens avgrensning og motstridende forventning i kundekorrespondansen](docs/multi-source-preview.png)
-
-## Arkitektur
+Next.js App Router, React, TypeScript og Tailwind CSS. Gemini kalles gjennom offisiell `@google/genai`. Zod validerer data, `pdf-parse` henter PDF-tekst og Vitest brukes til programvaretester.
 
 ```mermaid
-flowchart TD
-    U[Bruker] --> W[Norsk webgrensesnitt]
-    W --> P[Server: filvalidering og PDF/TXT-uttrekk]
-    P --> G[Server: Gemini Generate Content]
-    G --> V[Zod-validering og deterministisk sitatkontroll]
-    V --> H[Menneskelig vurdering av funn]
-    H --> D[Server: Gemini lager forslag fra vurderingene]
-    D --> E[Bruker kontrollerer og redigerer utkast]
-    E --> R[Ny kontroll av faste opprinnelige funn]
-    R --> G
-    V --> C[Bruker undersøker ny kontroll]
-    C --> A[Manuell godkjenning og TXT-nedlasting]
+flowchart LR
+    U[Bruker] --> W[Webgrensesnitt]
+    W --> S[Server: PDF/TXT og Gemini]
+    S --> V[Validerte svar og kildesitater]
+    V --> H[Menneskelig vurdering]
+    H --> P[Redigert forslag og ny kontroll]
+    P --> A[Manuell godkjenning]
 ```
 
-Alle Gemini-kall går via serveren. API-nøkkelen leses fra lokale miljøvariabler og sendes aldri til nettleseren. Dokumenttekst behandles som ubetrodd data; instruksjoner i dokumenter skal ikke følges. Modellens JSON-svar valideres med Zod før bruk.
-
-AI gjør den semantiske tolkningen. Applikasjonskode kontrollerer kildesitater med normalisert Unicode og mellomrom, beregner verifikasjonsstatus og oppretter funn-ID-er. Uverifiserte sitater, kildekonflikter og opplysninger som krever bekreftelse gir **Må avklares**. Ved ny kontroll vurderes overføringen separat: Et åpent punkt som er tydelig dokumentert med verifiserte sitater vises som **Overført – krever oppfølging**, og telles ikke som en mangel i notatet. Saken blir ikke dermed løst eller godkjent. Mennesket eier beslutningene. Et verifisert sitat beviser at teksten finnes, ikke at tolkningen er riktig.
-
-| Teknologi                                          | Bruk                                             |
-| -------------------------------------------------- | ------------------------------------------------ |
-| Next.js App Router, React og TypeScript            | Grensesnitt og serverruter i samme prosjekt      |
-| Tailwind CSS, Radix Slot og lokal Button-komponent | Tilgjengelige kontroller med shadcn/ui-mønster   |
-| `@google/genai`                                    | Generate Content med strukturert JSON            |
-| Zod                                                | Input, modellresponser, resultater og reviewdata |
-| `pdf-parse`                                        | Serverkompatibelt uttrekk fra PDF med tekst      |
-| Vitest                                             | Isolerte tester og SDK-mock uten API-kvote       |
-
-```text
-src/app/api/documents/    Filvalidering og tekstuttrekk
-src/app/api/analyze/      Live-sammenligning og validerte resultater
-src/app/api/reanalyze/    Vurdering av fast kravgrunnlag mot redigert utkast
-src/app/api/proposal/     Forslag etter fullført menneskelig vurdering
-src/components/          Dokumentfelt, funn, vurdering og forslagseditor
-src/lib/                 Skjemaer, sitatkontroll, demo og reviewlogikk
-src/lib/server/          Gemini-integrasjon, feil og forespørselsgrenser
-evaluation/              Ti syntetiske dokumentpar og poengberegning
-tests/                   Automatiske tester uten live-kall
-scripts/                 Live-evaluering og lokal hemmelighetskontroll
-public/examples/         Syntetisk avtale, overlevering og kunde-e-post
-docs/                    Skjermbilder, teknisk guide og faktisk evalueringsrapport
-```
+Gemini tolker innholdet. Applikasjonskode kontrollerer struktur, kildesitater og at alle opprinnelige funn følger med videre. API-nøkkelen finnes bare på serveren. Ingen database, innlogging eller permanent dokumentlagring brukes. Se [teknisk guide](docs/technical-guide.no.md) for designvalg og dataflyt.
 
 ## Kjør lokalt
 
-Forutsetninger: **Node.js 22.13+**, **pnpm 11.25** og Git. Installer avhengighetene med den innlåste avhengighetsfilen:
+Du trenger Node.js 22.13 eller nyere og pnpm 11.25.
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Åpne [http://127.0.0.1:3000](http://127.0.0.1:3000) og velg **Åpne demo**. Ingen nøkkel eller Google-konto kreves for demoen.
+Åpne [127.0.0.1:3000](http://127.0.0.1:3000) og velg **Prøv demo**.
 
-### Valgfri live-analyse med Gemini
-
-1. Opprett din egen nøkkel i [Google AI Studio](https://aistudio.google.com/apikey).
-2. Hvis `.env.local` ikke allerede finnes, kopier malen:
-
-```sh
-cp .env.example .env.local
-```
-
-3. Rediger bare den lokale `.env.local`-filen:
+For live-analyse: opprett en nøkkel i [Google AI Studio](https://aistudio.google.com/apikey), kopier `.env.example` til `.env.local` hvis filen ikke finnes, og fyll inn:
 
 ```dotenv
-GEMINI_API_KEY=
+GEMINI_API_KEY=din_lokale_nokkel
 GEMINI_MODEL=gemini-3.8-flash
 ```
 
-Fyll inn din egen nøkkel etter `GEMINI_API_KEY=` og start utviklingsserveren på nytt. **Nøkkelen skal ikke deles, legges i README eller få `NEXT_PUBLIC_`-prefiks.** `.env.local` er ignorert av Git; `.env.example` inneholder bare tom nøkkel og modellnavn.
+Start serveren på nytt etter endringen. Velg en modell du har tilgang til; tidligere live-tester brukte eksplisitt `gemini-3.5-flash-lite`. Appen bytter ikke modell automatisk og erstatter ikke feil med demodata. Tilgang og kvoter avhenger av Google-prosjektet ditt. Appen aktiverer ikke fakturering.
 
-Standardmodellen er `gemini-3.8-flash`. Den dokumenterte live-evalueringen brukte eksplisitt `gemini-3.5-flash-lite`. Sett selv `GEMINI_MODEL` til en modell prosjektet ditt har tilgang til. Tilgang og gratis kvoter er ikke garantert; appen aktiverer ikke fakturering og bytter aldri modell automatisk. Modellnavnet vises i grensesnittet. API-feil vises som feil og erstattes aldri av demodata.
+`.env.local` skal forbli lokal og er ignorert av Git. Bruk aldri `NEXT_PUBLIC_` på nøkkelen. Ved live-analyse og forslagsgenerering sendes dokumentteksten til Google Gemini. Se [sikkerhetsrutinen](SECURITY.md).
 
-Bruk **bare syntetiske, ikke-konfidensielle dokumenter**. Ved live-analyse og forslagsgenerering sendes teksten til Google Gemini. Ingen dokumenter lagres permanent på serveren av applikasjonen; Googles databehandling følger prosjektets tjenestevilkår og innstillinger.
-
-### Demo og live er tydelig atskilt
-
-|                 | Demo                                         | Live                                                      |
-| --------------- | -------------------------------------------- | --------------------------------------------------------- |
-| Dokumenter      | Avtale, notat og fiktiv kunde-e-post         | Opplastede syntetiske PDF/TXT-filer, eller eksempelfilene |
-| Første analyse  | Forhåndsberegnede, validerte funn            | Faktisk Gemini-kall                                       |
-| Oppdatert notat | Merket, regelbasert utkast                   | Faktisk Gemini-kall med beslutninger og kommentarer       |
-| Ny kontroll     | Begrenset kontroll av kjente eksempelsitater | Gemini vurderer alle opprinnelige funn og kilder          |
-| Nøkkel          | Ikke nødvendig                               | Lokal servernøkkel nødvendig                              |
-
-For en demonstrasjon på 2–3 minutter: åpne demoen, vis manglende ERP-integrasjon, datoavvik og e-postens forventning om fakturamigrering i strid med avtalen. Vis det separate Teams-ønsket, vurder de fem funnene som krever oppfølging og vis forslag, ny kontroll og godkjenning. Demoens kontroll er ikke en generell semantisk analyse av frie redigeringer.
-
-### Produksjonsbygg lokalt
+For å kjøre produksjonsbygget lokalt:
 
 ```sh
 pnpm build
 pnpm start
 ```
 
-Bygget bruker Webpack for å fungere i begrensede utviklingsmiljøer. Dette er en lokal prototype. Et offentlig kildekoderepositorium innebærer ikke at den nøkkeldrevne serveren bør eksponeres offentlig.
-
-## Tester og evaluering
+## Testing og begrensninger
 
 ```sh
 pnpm test
@@ -177,50 +86,14 @@ pnpm typecheck
 pnpm secrets:check
 ```
 
-Kjør bygg og separat TypeScript-kontroll etter hverandre; Next.js regenererer typefiler under bygg. Testene bruker SDK-mock og ekte lokal PDF/TXT-ekstraksjon, uten å bruke Gemini-kvote. De dekker blant annet filgrenser, ugyldige svar, sitatkontroll, klassifisering, review, forslag, foreldede godkjenninger, manglende vurderinger i ny kontroll, lokal tekstsammenligning og hemmelighetskontrollen. Se [verifiseringsloggen](docs/verification.md) for faktisk kjørt status.
+Kjør bygg før separat TypeScript-kontroll fordi Next.js genererer typer under bygg. Testene dekker blant annet filvalidering, kildesitater, beslutningsregler, forslag og ny kontroll. Gemini-svar mockes i automatiske tester; dette måler ikke modellens treffsikkerhet. Se [kontrollstatus og evaluering](docs/verification.md).
 
-### Historiske evalueringsresultater – bare todokumentversjonen
+En historisk live-kjøring med ti syntetiske dokumentpar ligger i [rårapporten](docs/evaluation-gemini-3.5-flash-lite-2026-10-20.json). Den gjelder en eldre todokumentversjon. Det lille testgrunnlaget gir ingen generell presisjonsmåling. Ny kjøring med lokal nøkkel: `pnpm evaluate --live`. Det bruker API-kvote og lagrer rapporten lokalt i ignorert `evaluation-results/`.
 
-Tallene nedenfor gjelder kun den opprinnelige versjonen med én avtale og ett internnotat. De måler ikke flerdokumentfunksjonaliteten. Én live-kjøring **20. oktober 2026** med `gemini-3.5-flash-lite` fullførte **10 av 10 syntetiske dokumentpar uten API-feil**. Dette er historiske, lagrede resultater, ikke et løfte om dagens modelltilgang eller fremtidig kvalitet.
+Viktige begrensninger:
 
-| Måling                                         | Resultat       |
-| ---------------------------------------------- | -------------- |
-| Korrekt identifiserte utelatelser              | 4              |
-| Oversette utelatelser                          | 0              |
-| Falske positive problemfunn                    | 0              |
-| Klassifiseringsnøyaktighet med streng matching | 71,4 % (10/14) |
-
-Poengberegningen krever både riktig kategori og overlappende ordrett avtaleanker. To korrekt dekkede forpliktelser i tilfelle 07 fikk andre kategorier enn fasiten og ble derfor regnet som umatchede krav og ekstra funn. **71,4 % er et kategoriavhengig matcherresultat, ikke en ren måling av semantisk klassifisering.** Fasiten og poengregelen er ikke endret for å forbedre resultatet.
-
-Datasettet dekker mangler, semantisk likhet, datokonflikter, ansvar, avgrensninger, tvetydighet, korrekt overførte krav, flere krav i ett avsnitt, irrelevant innhold og prompt injection. Det lille, håndlagde settet og én kjøring dokumenterer ikke generell modellpresisjon eller kommersiell effekt. Forslagsgenerering er funksjonstestet separat og omfattes ikke av denne poengsummen.
-
-Se [rårapporten med faktiske modellresponser](docs/evaluation-gemini-3.5-flash-lite-2026-10-20.json), [datasettet](evaluation/dataset.ts) og [poengberegningen](evaluation/score.ts).
-
-Kjør ny live-evaluering med lokal nøkkel:
-
-```sh
-pnpm evaluate --live
-# Eventuelt bare ett dokumentpar:
-pnpm evaluate --live --case=02-semantic-training
-```
-
-Evalueringssettet inneholder fortsatt bare todokumentpar. Kjøring mot dagens kode gir nye resultater og reproduserer ikke nødvendigvis den historiske rapporten. Dette sender faktiske forespørsler og bruker prosjektets kvote. Resultater lagres i ignorert `evaluation-results/`. Skriptet bruker ingen forhåndsberegnede svar eller automatisk retry. Nye rapporter må gjennomgås for konfidensielt innhold før de eventuelt legges i `docs/`.
-
-## Sikkerhet og avgrensninger
-
-- PDF/TXT: maksimalt 2 MiB og 20 000 teksttegn per dokument, 40 PDF-sider og 40 funn. Maksimalt 40 000 tegn samlet over alle fem dokumentplasser, også når utkastet erstatter det opprinnelige notatet. Dette beholder det tidligere tekstbudsjettet for to dokumenter; nye kilder må dele plassen. Grenser håndheves uten skjult avkorting. Analyseforespørselen er fortsatt begrenset til 260 000 byte, forslag og ny kontroll til 512 000 byte. Skannede og teksttomme PDF-er avvises; ingen OCR.
-- Servervalidering, størrelsesbegrenset body, origin-kontroll og enkel struping. Analyse, forslag og ny kontroll deler fem AI-kall per ti minutter og én samtidig forespørsel per prosess.
-- Dokumenter og svar gjengis som tekst. Modellsvar og rå leverandørfeil brukes ikke som HTML eller logges som dokumentinnhold.
-- Reviewdata beholdes lokalt i den aktive nettleserøkten. Utkast og godkjenning ligger i minnet; en ny sideåpning nullstiller kontrollen.
-- Første analyse kan overse relevant informasjon fra både avtale og støttekilder. Fast kontrollgrunnlag beskytter bare funn som faktisk ble identifisert.
-- PDF-uttrekk kan gi feil leserekkefølge. En modell kan overse krav eller tolke et verifisert sitat feil. Systeminstrukser eliminerer ikke prompt injection.
-- Ny kontroll vurderer dekning av det faste opprinnelige kildegrunnlaget og fanger ikke nødvendigvis alle udokumenterte tillegg i et generert notat. Menneskelig kontroll er nødvendig, også ved null flaggede mangler.
-- Strupingen er prosessbasert og ingen erstatning for autentisering eller produksjonssikring. Ingen juridisk godkjenning eller garanti for etterlevelse gis.
-
-`.gitignore` utelater miljøfiler, sertifikater, private mapper, logger, lokale evalueringer og byggeoutput. `pnpm secrets:check` kontrollerer publiserbare filer og lokale Git-objekter, inkludert historikk, staging og utilgjengelige objekter, uten å skrive ut hemmelighetsverdier. Kontrollen bruker kjente tokenmønstre og hemmeligheter fra lokale miljøfiler; den kan ikke bevise at vilkårlig innhold er ikke-konfidensielt. Se [sikkerhetsrutinen](SECURITY.md) og [den lokale publiseringskontrollen](docs/repository-readiness.md).
-
-## Videre utvikling
-
-Neste relevante steg er flere uavhengig merkede syntetiske tilfeller, bedre PDF-uttrekk og en brukertest med prosjektledere. En effektstudie bør sammenligne manuell og AI-støttet gjennomgang på samme oppgaver og måle tidsbruk, oversette feil, falske alarmer og opplevd nytte.
-
-Mer om designvalg, skjemaer, begrensninger og måledefinisjoner finnes i [den tekniske guiden](docs/technical-guide.no.md).
+- PDF med markerbar tekst eller TXT. Maksimalt 2 MiB og 20 000 tegn per fil, 40 PDF-sider og 40 000 tegn samlet. Ingen OCR eller skjult avkorting.
+- AI kan overse innhold og tolke et korrekt sitat feil. Fast kontrollgrunnlag beskytter bare funn som ble oppdaget første gang.
+- Et forslag må leses av brukeren. Ingen automatisk juridisk godkjenning eller garanti for fullstendighet gis.
+- Demoens lokale kontroll gjenkjenner bare kjente formuleringer, ikke vilkårlig redigert tekst.
+- Lokal struping og kildekontroll gjør ikke prototypen klar for offentlig drift. En ny sideåpning nullstiller arbeidsøkten.

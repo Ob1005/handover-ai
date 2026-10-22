@@ -1,3 +1,4 @@
+import { duplicateDocumentMessage } from "./document-validation";
 import {
   reviewsSchema,
   sessionSchema,
@@ -20,8 +21,8 @@ export function getWorkflowStep(
   if (busy === "analysis") return 2;
   if (busy === "generation" || busy === "verification") return 4;
   if (busy) return 1;
-  if (result)
-    return reviewProgress(result.findings, reviews).unresolved === 0 ? 4 : 3;
+  if (result) return canGenerateProposal(result, reviews) ? 4 : 3;
+  if (duplicateDocumentMessage(documents)) return 1;
   return documents.agreement && documents.handover ? 2 : 1;
 }
 export function updateReview(
@@ -52,6 +53,16 @@ export function reviewProgress(findings: Finding[], reviews: Reviews) {
     unresolved: required.length - reviewed,
     total: required.length,
   };
+}
+export function canGenerateProposal(
+  analysis: AnalysisResult | null,
+  reviews: Reviews,
+) {
+  return (
+    !!analysis &&
+    analysis.findings.length > 0 &&
+    reviewProgress(analysis.findings, reviews).unresolved === 0
+  );
 }
 export function parseSession(value: string | null) {
   if (!value) return null;

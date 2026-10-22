@@ -16,10 +16,15 @@ export async function POST(request: Request) {
     const parsed = proposalRequestSchema.safeParse(
       await readLimitedJson(request, 512_000),
     );
-    if (!parsed.success)
+    if (!parsed.success) {
+      const noFindings = parsed.error.issues.find(
+        (issue) => issue.code === "custom" && issue.params?.code === "NO_FINDINGS",
+      );
+      if (noFindings) throw new AppError(noFindings.message, 400, "NO_FINDINGS");
       throw new AppError(
         "Potensielt manglende funn og funn som må avklares må være vurdert. Vurderingene må tilhøre denne analysen.",
       );
+    }
     release = acquireLimit("analysis", 5, 10 * 60_000, 1);
     return Response.json(
       { proposal: await generateProposal(parsed.data) },

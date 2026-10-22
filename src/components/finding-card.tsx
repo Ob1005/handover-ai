@@ -69,12 +69,12 @@ export function FindingCard({
         <div className="finding-title">
           <span className="finding-category">
             {categoryLabels[finding.category]}
-            {finding.certainty === "ambiguous" && " · Tvetydig avtaletekst"}
+            {finding.certainty === "ambiguous" && " · Uklar formulering"}
           </span>
           <h3>{finding.title}</h3>
         </div>
         <div className="finding-summary-right">
-          <Status value={finding.classification} label={transferredFollowUp ? "Overført – krever oppfølging" : undefined} />
+          <Status value={finding.classification} label={transferredFollowUp ? "Overført med oppfølging" : undefined} />
           {review.decision !== "unreviewed" && (
             <span className="reviewed-label">
               <CheckCheck size={13} />
@@ -90,18 +90,18 @@ export function FindingCard({
           {finding.sourceDocumentId !== "agreement" &&
             " · Ikke et bekreftet avtalevilkår"}
           {finding.requiresConfirmation && " · Krever bekreftelse"}
-          {transferredFollowUp && " · Overført til notatet; saken er fortsatt åpen"}
+          {transferredFollowUp && " · Dokumentert i notatet, fortsatt åpen sak"}
         </p>
         <p className="finding-description">{finding.description}</p>
         {finding.modelClassification !== finding.classification && (
           <p className="validation-warning">
-            Kildegrunnlaget eller opplysningens autoritet krever avklaring.
-            Opprinnelig AI-forslag:{" "}
+            Klassifiseringen er justert etter kildekontrollen.
+            AI foreslo:{" "}
             {classificationLabels[finding.modelClassification]}.
           </p>
         )}
         <div className="finding-explanation">
-          <strong>{transferredFollowUp ? "Hvordan saken er overført" : "Hvorfor dette er flagget"}</strong>
+          <strong>{transferredFollowUp ? "Hva som er overført" : "Begrunnelse"}</strong>
           <p>{finding.explanation}</p>
         </div>
         <div className="evidence-grid">
@@ -128,7 +128,7 @@ export function FindingCard({
             />
           ))}
           <Evidence
-            title="Overleveringsnotater"
+            title="Overleveringsnotat"
             documentId="B · handover"
             filename={documents.handover.name}
             quote={finding.handoverQuote}
@@ -138,15 +138,15 @@ export function FindingCard({
         <div className="evidence-note">
           <ShieldCheck size={13} />
           {finding.evidence.status === "verified"
-            ? "Alle oppgitte sitater er kontrollert mot kildeteksten."
-            : "Ett eller flere sitater kunne ikke verifiseres. Kontroller originalteksten før vurdering."}
+            ? "Sitatene er kontrollert mot dokumentene."
+            : "Minst ett sitat er ikke verifisert. Kontroller kilden før du vurderer funnet."}
           <span>{finding.id}</span>
         </div>
         {!readOnly && (
           <div className="human-review">
             <div className="human-review-title">
               <strong>Din vurdering{finding.classification === "covered" ? " (valgfritt)" : ""}</strong>
-              <span>Er du enig i AI-funnet og klassifiseringen?</span>
+              <span>Stemmer funnet og klassifiseringen?</span>
             </div>
             <div className="review-buttons">
               <Button
@@ -182,19 +182,22 @@ export function FindingCard({
                 </Button>
               )}
             </div>
-            <label className="review-comment" htmlFor={`comment-${finding.id}`}>
-              Kommentar <span>(valgfritt)</span>
+            <details className="review-comment-details" open={review.comment ? true : undefined}>
+              <summary>{review.comment ? "Kommentar" : "Legg til kommentar"} <span>(valgfritt)</span></summary>
+              <label className="review-comment" htmlFor={`comment-${finding.id}`}>
+                <span className="sr-only">Kommentar til funnet</span>
               <textarea
                 id={`comment-${finding.id}`}
                 value={review.comment}
                 maxLength={1000}
                 onChange={(e) => onReview({ comment: e.target.value })}
                 rows={2}
-                placeholder="Noter begrunnelse eller hva som bør følges opp …"
+                placeholder="Begrunn vurderingen eller noter neste steg."
               />
-            </label>
+              </label>
+            </details>
             <span className="review-help">
-              Vurderingen endrer ikke AI-klassifiseringen eller avtalen.
+              Du vurderer funnet. Avtalen og AI-klassifiseringen endres ikke.
             </span>
           </div>
         )}
@@ -232,7 +235,7 @@ function Evidence({
           {status === "verified"
             ? "Sitat verifisert"
             : status === "not_provided"
-              ? "Ingen kilde oppgitt"
+              ? "Ingen tilsvarende tekst funnet"
               : "Sitat ikke verifisert"}
         </span>
       </div>
@@ -240,8 +243,7 @@ function Evidence({
         <blockquote>«{quote}»</blockquote>
       ) : (
         <p className="no-quote">
-          Ingen tilsvarende opplysning ble identifisert i overleveringen.
-          Kontroller dokumentet manuelt.
+          Ingen tilsvarende opplysning funnet. Kontroller notatet manuelt.
         </p>
       )}
       <div className="evidence-source">

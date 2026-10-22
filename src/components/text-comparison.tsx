@@ -15,16 +15,15 @@ export function TextComparison({
   return (
     <details className="text-comparison">
       <summary>
-        Se faktiske tekstendringer ({added} lagt til · {removed} fjernet)
+        Tekstendringer <span className="diff-summary-count">{added} lagt til · {removed} fjernet</span>
       </summary>
       <p>
-        Originalnotatet sammenlignes med teksten i redigeringsfeltet, inkludert
-        dine endringer. Sammenligningen beregnes lokalt, linje for linje.
+        Originalnotatet mot utkastet du redigerer. Beregnet lokalt, linje for linje.
       </p>
       <div className="diff-legend">
         <span className="diff-added">+ Lagt til</span>
         <span className="diff-removed">− Fjernet</span>
-        <span>Uendret tekst vises nøytralt</span>
+        <span>Uendret</span>
       </div>
       {added === 0 && removed === 0 && <p>Ingen tekstendringer.</p>}
       <ol className="diff-lines" aria-label="Tekstsammenligning">

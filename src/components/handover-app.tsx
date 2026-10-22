@@ -13,7 +13,6 @@ import {
   GitCompareArrows,
   Info,
   LoaderCircle,
-  LockKeyhole,
   Play,
   RotateCcw,
   ShieldCheck,
@@ -44,6 +43,7 @@ import {
 import { getDemoAnalysis } from "@/lib/demo";
 import {
   getWorkflowStep,
+  canGenerateProposal,
   reviewProgress,
   requiresReview,
   serializeSession,
@@ -52,6 +52,7 @@ import {
   type WorkflowActivity,
 } from "@/lib/review";
 import { validateFile } from "@/lib/file-validation";
+import { duplicateDocumentMessage } from "@/lib/document-validation";
 
 export function HandoverApp({ model }: { model: string }) {
   const [documents, setDocuments] = useState<
@@ -177,6 +178,7 @@ export function HandoverApp({ model }: { model: string }) {
     setFilter("all");
     setOnlyUnreviewed(false);
   }
+  const duplicateWarning = duplicateDocumentMessage(documents);
   const totalCharacters = listDocuments(documents).reduce(
     (sum, d) => sum + d.text.length,
     0,
@@ -184,6 +186,7 @@ export function HandoverApp({ model }: { model: string }) {
   async function analyze() {
     if (lock.current || !documents.agreement || !documents.handover || !consent)
       return;
+    if (duplicateWarning) return;
     const checkedDocuments = documentsSchema.safeParse(documents);
     if (!checkedDocuments.success) {
       setError(
@@ -257,66 +260,40 @@ export function HandoverApp({ model }: { model: string }) {
   const currentStep = getWorkflowStep(documents, busy, result, reviews);
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <Link className="brand" href="/" aria-label="Handover AI – startside">
-          <span className="brand-mark">
-            <GitCompareArrows size={23} />
-          </span>
-          <span>
-            handover<span className="brand-ai">AI</span>
-          </span>
-        </Link>
-        <div className="workspace-label">ARBEIDSOMRÅDE</div>
-        <div className="nav-active">
-          <FileCheck2 size={18} />
-          Overleveringskontroll
-          <span className="nav-dot" />
-        </div>
-        <div className="sidebar-note">
-          <div className="sidebar-note-icon">
-            <ShieldCheck size={20} />
-          </div>
-          <strong>
-            Bedre overleveringer
-            <br />
-            starter med oversikt.
-          </strong>
-          <p>
-            Se hva som er avtalt, hva som er overført, og hva som bør avklares.
-          </p>
-        </div>
-        <div className="sidebar-bottom">
-          <span className="prototype-dot" />
-          PORTFOLIOPROTOTYPE<span>Utviklet for menneskelig kontroll</span>
-        </div>
-      </aside>
+      <a className="skip-link" href="#main">Hopp til innhold</a>
       <div className="main-shell">
         <header className="topbar">
-          <div className="breadcrumb">
-            Arbeidsområde <span>/</span> <strong>Overleveringskontroll</strong>
+          <Link className="brand" href="/" aria-label="Handover AI, startside">
+            <span className="brand-mark"><GitCompareArrows size={22} /></span>
+            <span>handover<span className="brand-ai">AI</span></span>
+          </Link>
+          <div className="header-context">Overleveringskontroll</div>
+          <div className="topbar-meta">
+            <span className="prototype-label">Prototype</span>
           </div>
-          <span className="privacy-label">
-            <LockKeyhole size={14} />
-            Kun syntetiske dokumenter
-          </span>
         </header>
         <main id="main">
           <div className="page-heading">
             <div>
               <div className="eyebrow">FRA SALG TIL LEVERANSE</div>
-              <h1>Få med det som er avtalt.</h1>
+              <h1>Fra avtale til leveranse.</h1>
               <p>
-                Sammenlign avtale og salgskilder med overleveringen før
-                prosjektet starter.
+                Sjekk at leveringsteamet har fått med seg det som er avtalt.
               </p>
             </div>
+            {!result && !busy && (
+              <div className="demo-invite">
+                <div><strong>Se hvordan det fungerer</strong><span>Ferdig eksempel. Ingen API-nøkkel nødvendig.</span></div>
+                <Button variant="outline" onClick={demo} disabled={!ready}><Play size={15} /> Prøv demo</Button>
+              </div>
+            )}
           </div>
           <ol className="steps" aria-label="Arbeidsflyt">
             {[
-              "Legg til dokumenter",
-              "Analyser med AI",
-              "Vurder og avklar",
-              "Generer forslag",
+              "Dokumenter",
+              "Analyse",
+              "Vurder funn",
+              "Oppdater notatet",
             ].map((label, i) => (
               <li
                 key={label}
@@ -341,11 +318,8 @@ export function HandoverApp({ model }: { model: string }) {
           <div className="restriction">
             <ShieldCheck size={18} />
             <div>
-              <strong>En trygg demo begynner med syntetiske data.</strong>
-              <span>
-                Bruk kun oppdiktede dokumenter. Ekte avtaler, personopplysninger
-                og konfidensielt innhold skal ikke lastes opp.
-              </span>
+              <strong>Bruk bare syntetiske dokumenter</strong>
+              <span>Ikke last opp ekte avtaler, personopplysninger eller konfidensielt innhold.</span>
             </div>
           </div>
 
@@ -355,10 +329,9 @@ export function HandoverApp({ model }: { model: string }) {
           >
             <div className="section-heading">
               <div>
-                <h2 id="documents-title">Dokumentgrunnlag</h2>
+                <h2 id="documents-title">Dokumenter</h2>
                 <p>
-                  Avtale og overlevering kreves. Legg eventuelt til opptil tre
-                  salgskilder.
+                  Legg til kundeavtalen og notatet som skal kontrolleres.
                 </p>
               </div>
               {result?.mode === "live" && (
@@ -381,8 +354,7 @@ export function HandoverApp({ model }: { model: string }) {
                 onChange={(e) => setConsent(e.target.checked)}
               />
               <span>
-                Jeg bekrefter at dokumentene er syntetiske og ikke inneholder
-                konfidensielle opplysninger.
+                Dokumentene er syntetiske og inneholder ingen konfidensielle opplysninger.
               </span>
             </label>
             <div className="upload-grid">
@@ -402,10 +374,9 @@ export function HandoverApp({ model }: { model: string }) {
               className="supporting-documents"
               open={supportingIds.some((id) => !!documents[id]) || undefined}
             >
-              <summary>Støttedokumenter (valgfritt, maks 3)</summary>
+              <summary>Legg til salgskilder <span>Valgfritt · opptil 3 dokumenter</span></summary>
               <p>
-                Tilbud, korrespondanse og møtenotater kan forklare forventninger
-                og praktiske behov. De overstyrer ikke den signerte avtalen.
+                Tilbud, e-poster og møtenotater kan avdekke forventninger og behov. Avtalen er fortsatt førende.
               </p>
               <div className="upload-grid">
                 {supportingIds.map((id) => (
@@ -422,6 +393,12 @@ export function HandoverApp({ model }: { model: string }) {
                 ))}
               </div>
             </details>
+            {duplicateWarning && (
+              <p className="proposal-error" role="alert">
+                <TriangleAlert size={16} />
+                {duplicateWarning}
+              </p>
+            )}
             <p
               className={
                 totalCharacters > MAX_TOTAL_TEXT_LENGTH
@@ -431,12 +408,12 @@ export function HandoverApp({ model }: { model: string }) {
               role="status"
             >
               {totalCharacters.toLocaleString("nb-NO")} / 40 000 tegn samlet ·
-              maks. 20 000 per dokument. Ingen automatisk avkorting.
+              maks. 20 000 per dokument.
             </p>
             <div className="analyze-bar">
               <div className="model-info">
                 <span>
-                  <strong>{model}</strong>
+                  <Sparkles size={14} /><span>Modell <strong>{model}</strong></span>
                 </span>
               </div>
               <Button
@@ -444,6 +421,7 @@ export function HandoverApp({ model }: { model: string }) {
                 disabled={
                   !!busy ||
                   !consent ||
+                  !!duplicateWarning ||
                   totalCharacters > MAX_TOTAL_TEXT_LENGTH ||
                   !documents.agreement ||
                   !documents.handover ||
@@ -492,12 +470,11 @@ export function HandoverApp({ model }: { model: string }) {
           {busy === "analysis" && (
             <div className="loading-panel" role="status" aria-live="polite">
               <LoaderCircle className="spin" size={24} />
-              <h3>Kontrollerer forpliktelsene</h3>
+              <h3>Analyserer dokumentene</h3>
               <p>
-                Gemini sammenligner innholdet. Deretter kontrolleres sitatene
-                mot dokumentene.
+                Sammenligner innholdet og kontrollerer kildesitatene.
               </p>
-              <span>Dette kan ta opptil 60 sekunder. Unngå å lukke siden.</span>
+              <span>Dette kan ta opptil ett minutt.</span>
             </div>
           )}
 
@@ -516,13 +493,13 @@ export function HandoverApp({ model }: { model: string }) {
                   )}
                   <strong>
                     {result.mode === "demo"
-                      ? "Demomodus · forhåndsberegnede resultater"
+                      ? "Demo · forhåndsberegnede resultater"
                       : "Live AI-analyse · " + result.model}
                   </strong>
                 </span>
                 {result.mode === "demo" ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span>Fiktivt prosjekt: Fjordlogistikk AS</span>
+                    <span>Fjordlogistikk AS · fiktivt prosjekt</span>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -545,21 +522,21 @@ export function HandoverApp({ model }: { model: string }) {
               <div className="section-heading results-heading">
                 <div>
                   <div className="eyebrow">KONTROLLRESULTAT</div>
-                  <h2 id="results-title">Dette bør teamet se nærmere på.</h2>
+                  <h2 id="results-title">Hva har kommet med?</h2>
                   <p>
-                    AI foreslår. Vurder mulige mangler og avklaringsbehov. Dekkede krav kan kontrolleres valgfritt.
+                    Vurder mulige mangler og avklaringsbehov. Dekkede punkter kan du se gjennom ved behov.
                   </p>
                 </div>
                 <span className="unresolved">
                   <span />
-                  {progress.unresolved} uvurderte funn
+                  {result.findings.length === 0 ? "Ingen funn å vurdere" : progress.unresolved === 0 ? "Ferdig vurdert" : `${progress.unresolved} gjenstår`}
                 </span>
               </div>
               <div className="summary-grid">
                 <div className="summary-card">
-                  <span>Funn identifisert</span>
+                  <span>Punkter funnet</span>
                   <strong>{result.findings.length}</strong>
-                  <small>i kildegrunnlaget</small>
+                  <small>i dokumentene</small>
                 </div>
                 {(
                   [
@@ -583,10 +560,10 @@ export function HandoverApp({ model }: { model: string }) {
                       <strong>{counts[c]}</strong>
                       <small>
                         {c === "covered"
-                          ? "ser ut til å være overført"
+                          ? "overført til notatet"
                           : c === "potentially_missing"
-                            ? "uten tilsvarende informasjon"
-                            : "trenger en avklaring"}
+                            ? "ikke funnet i notatet"
+                            : "trenger din vurdering"}
                       </small>
                     </button>
                   );
@@ -598,26 +575,28 @@ export function HandoverApp({ model }: { model: string }) {
                   <strong>
                     {progress.reviewed} av {progress.total}
                   </strong>{" "}
-                  funn som krever vurdering er gjennomgått
+                  vurdert
                 </span>
                 <div
                   className="progress-track"
                   role="progressbar"
                   aria-label="Vurderingsfremdrift"
-                  aria-valuenow={progress.total ? progress.reviewed : 1}
+                  aria-valuenow={progress.total ? progress.reviewed : result.findings.length ? 1 : 0}
                   aria-valuemin={0}
                   aria-valuemax={progress.total || 1}
                 >
                   <div
                     style={{
-                      width: `${progress.total ? (progress.reviewed / progress.total) * 100 : 100}%`,
+                      width: `${progress.total ? (progress.reviewed / progress.total) * 100 : result.findings.length ? 100 : 0}%`,
                     }}
                   />
                 </div>
                 <span>
-                  {progress.unresolved === 0
-                    ? "Alle nødvendige vurderinger er fullført"
-                    : "Vurdering lagres i denne nettleserøkten"}
+                  {!result.findings.length
+                    ? "Kontroller dokumentene og start en ny analyse"
+                    : progress.unresolved === 0
+                    ? "Klar til å lage forslag"
+                    : "Lagres i denne nettleserøkten"}
                 </span>
               </div>
               <div className="findings-toolbar">
@@ -648,7 +627,7 @@ export function HandoverApp({ model }: { model: string }) {
                     checked={onlyUnreviewed}
                     onChange={(e) => setOnlyUnreviewed(e.target.checked)}
                   />
-                  Kun funn som krever vurdering
+                  Vis bare uvurderte avvik
                 </label>
               </div>
               <div className="findings-list">
@@ -683,27 +662,20 @@ export function HandoverApp({ model }: { model: string }) {
                     <p>
                       {result.findings.length
                         ? "Velg et annet filter for å se flere funn."
-                        : "Dette bekrefter ikke at avtalen er uten forpliktelser. Les dokumentene manuelt og kontroller at teksten er fullstendig."}
+                        : "Kontroller at du har lastet opp en kundeavtale og et overleveringsnotat. Start en ny kontroll med riktige dokumenter. Du kan ikke generere forslag uten et kontrollgrunnlag."}
                     </p>
                   </div>
                 )}
               </div>
-              <div className="result-disclaimer">
-                <Info size={16} />
-                <p>
-                  Sitatkontrollen bekrefter at teksten finnes i kilden, ikke at
-                  AI-tolkningen er riktig. Manglende sitat fra overleveringen
-                  beviser ikke en utelatelse. Bekreftet betyr at du er enig i
-                  funnet; det betyr ikke at en leveranseutfordring er løst.
-                  Kontrollen er ingen juridisk vurdering eller garanti for
-                  avtalemessig etterlevelse.
-                </p>
-              </div>
+              <details className="result-disclaimer">
+                <summary><Info size={15} /> Om vurderingene</summary>
+                <p>Bekreft et funn når du er enig i vurderingen, selv om saken fortsatt er åpen. Verifiserte sitater bekrefter tekstforekomst, ikke at AI-tolkningen er riktig. Fravær av et sitat beviser ikke en mangel. Kontrollen er ingen juridisk vurdering.</p>
+              </details>
               <ProposalPanel
                 key={result.id}
                 analysis={result}
                 reviews={reviews}
-                allReviewed={progress.unresolved === 0}
+                allReviewed={canGenerateProposal(result, reviews)}
                 syntheticConfirmed={consent}
                 activity={
                   busy === "generation" || busy === "verification" ? busy : null
@@ -711,46 +683,12 @@ export function HandoverApp({ model }: { model: string }) {
                 onActivity={setBusy}
               />
             </section>
-          ) : (
-            !busy && (
-              <section className="empty-state">
-                <div className="empty-state-main">
-                  <span className="empty-icon">
-                    <GitCompareArrows size={24} />
-                  </span>
-                  <div>
-                    <h3>Se overleveringen med et ekstra sett øyne.</h3>
-                    <p>
-                      Finn mulige utelatelser og motstridende opplysninger,
-                      <br className="desktop-break" /> med sitater du kan
-                      kontrollere selv.
-                    </p>
-                  </div>
-                </div>
-                <div className="demo-callout">
-                  <span className="mini-label">INGEN API-NØKKEL NØDVENDIG</span>
-                  <strong>Prøv et realistisk eksempel</strong>
-                  <p>
-                    En avtale, en overlevering og en fiktiv kunde-e-post.
-                    <br />
-                    Se hva som ble med – og hva som mangler.
-                  </p>
-                  <button onClick={demo} disabled={!ready}>
-                    Åpne demo <ArrowRight size={15} />
-                  </button>
-                  <small>
-                    Forhåndsberegnede resultater · ingen AI-forespørsel
-                  </small>
-                </div>
-              </section>
-            )
-          )}
+          ) : null}
           <footer>
             <span>
-              Handover AI <span className="footer-divider">/</span> Fra avtale
-              til felles forståelse.
+              Handover AI <span className="footer-divider">/</span> Porteføljeprototype
             </span>
-            <span>Prototype · Mennesket tar den endelige beslutningen</span>
+            <span>AI foreslår. Du vurderer og godkjenner.</span>
           </footer>
         </main>
       </div>
@@ -802,9 +740,9 @@ function UploadCard({
           <h3>{title}</h3>
           <p>
             {id === "agreement"
-              ? "Hva har vi forpliktet oss til?"
+              ? "Signert avtale eller arbeidsbeskrivelse"
               : id === "handover"
-                ? "Hva har leveringsteamet fått vite?"
+                ? "Notatet fra salg til leveringsteamet"
                 : "Valgfri salgskilde · PDF eller TXT"}
           </p>
         </div>
@@ -854,12 +792,12 @@ function UploadCard({
             ? "Henter ut tekst …"
             : document
               ? document.name
-              : "Klikk for å laste opp eller dra filen hit"}
+              : "Velg fil eller dra den hit"}
         </strong>
         <span>
           {document
-            ? `${document.text.length.toLocaleString("nb-NO")} tegn hentet ut · Klikk for å erstatte`
-            : "PDF med markerbar tekst eller TXT · maks. 2 MB"}
+            ? `${document.text.length.toLocaleString("nb-NO")} tegn · Klikk for å bytte fil`
+            : "PDF eller TXT · maks. 2 MB"}
         </span>
       </button>
       <div className="upload-card-footer">
@@ -888,10 +826,10 @@ function UploadCard({
             <span>
               <FileText size={13} />
               {id === "agreement"
-                ? "Signert avtale eller arbeidsbeskrivelse"
+                ? "PDF må ha markerbar tekst"
                 : id === "handover"
-                  ? "Internt dokument fra salg til leveranse"
-                  : "Støttekilde – ikke avtalevilkår"}
+                  ? "PDF må ha markerbar tekst"
+                  : "Tilleggsinformasjon, ikke avtalevilkår"}
             </span>
             <span>20 000 tegn</span>
           </>
@@ -949,8 +887,7 @@ function DocumentDialog({
       <pre>{document.text}</pre>
       <div className="dialog-footer">
         <span>
-          {document.text.length.toLocaleString("nb-NO")} tegn · Ingen
-          sidereferanser
+          {document.text.length.toLocaleString("nb-NO")} tegn · Uten sidereferanser
         </span>
         <Button variant="outline" size="sm" onClick={download}>
           <ArrowDownToLine size={14} />
