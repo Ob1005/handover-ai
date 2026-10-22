@@ -4,6 +4,7 @@ import { aiResponseSchema, documentsSchema, type AiFinding } from "./schemas";
 export const demoDocuments = documentsSchema.parse({
   agreement: {
     id: "agreement",
+    documentType: "agreement",
     name: "Fjordlogistikk_Kundeavtale.txt",
     type: "txt",
     bytes: 1450,
@@ -33,6 +34,7 @@ Migrering av historiske fakturaer er ikke inkludert i prosjektets omfang.
   },
   handover: {
     id: "handover",
+    documentType: "handover",
     name: "Fjordlogistikk_Overlevering.txt",
     type: "txt",
     bytes: 870,
@@ -56,7 +58,7 @@ const item = (
   title: string,
   category: AiFinding["category"],
   classification: AiFinding["classification"],
-  agreementQuote: string,
+  sourceQuote: string,
   handoverQuote: string | null,
   explanation: string,
 ): AiFinding => ({
@@ -65,7 +67,11 @@ const item = (
   category,
   classification,
   certainty: "explicit",
-  agreementQuote,
+  sourceQuote,
+  sourceDocumentId: "agreement",
+  informationType: "contractual",
+  requiresConfirmation: false,
+  relatedSources: [],
   handoverQuote,
   explanation,
 });
@@ -129,10 +135,76 @@ export const demoResponse = aiResponseSchema.parse({
     ),
   ],
 });
-export function getDemoAnalysis() {
+// The original two-document fixtures above remain available for regression tests.
+export const multiDemoDocuments = documentsSchema.parse({
+  ...demoDocuments,
+  correspondence: {
+    id: "correspondence",
+    documentType: "correspondence",
+    type: "txt",
+    name: "Fjordlogistikk_Kundekorrespondanse.txt",
+    bytes: 620,
+    text: `SYNTETISK KUNDE-E-POST – fiktivt eksempel, ingen personopplysninger.
+Fra: prosjektkontakt i Fjordlogistikk AS (fiktiv)
+Til: salgsteamet i Nordlys Programvare AS (fiktiv)
+Dato: 18. september 2026
+
+Vi forventer at alle historiske fakturaer migreres som del av prosjektet.
+Vi ønsker at oppstartsmøtet holdes digitalt på Teams.
+Integrasjon med kundens ERP-system, Visma Business, er inkludert i leveransen.
+Ønskene må avklares med prosjektleder; denne e-posten endrer ikke den signerte avtalen.`,
+  },
+});
+export const multiDemoResponse = aiResponseSchema.parse({
+  findings: [
+    ...demoResponse.findings.map((f): AiFinding =>
+      f.category === "exclusions"
+        ? {
+            ...f,
+            informationType: "conflict",
+            requiresConfirmation: true,
+            classification: "needs_clarification",
+            relatedSources: [
+              {
+                documentId: "correspondence",
+                quote:
+                  "Vi forventer at alle historiske fakturaer migreres som del av prosjektet.",
+              },
+            ],
+            explanation:
+              "E-posten forventer fakturamigrering, men signert avtale utelukker dette. Avtalen er førende. Avklar forventningen med kunden; ikke legg migrering inn som en avtalt leveranse.",
+          }
+        : f.category === "integrations"
+          ? {
+              ...f,
+              relatedSources: [
+                { documentId: "correspondence", quote: f.sourceQuote },
+              ],
+            }
+          : f,
+    ),
+    {
+      title: "Ønske om digitalt oppstartsmøte",
+      description:
+        "Kunden ønsker Teams som møteform. Dette er et ønske fra salgsfasen, ikke et bekreftet avtalevilkår.",
+      category: "implementation",
+      classification: "needs_clarification",
+      certainty: "explicit",
+      sourceDocumentId: "correspondence",
+      sourceQuote: "Vi ønsker at oppstartsmøtet holdes digitalt på Teams.",
+      relatedSources: [],
+      informationType: "follow_up",
+      requiresConfirmation: true,
+      handoverQuote: null,
+      explanation:
+        "Ønsket er ikke overført til notatet. Prosjektleder bør bekrefte møteformen med kunden før det behandles som en avtale.",
+    },
+  ],
+});
+export function getDemoAnalysis(includeSupporting = true) {
   return createAnalysis(
-    demoResponse,
-    demoDocuments,
+    includeSupporting ? multiDemoResponse : demoResponse,
+    includeSupporting ? multiDemoDocuments : demoDocuments,
     "demo",
     "Forhåndsberegnet demo",
   );

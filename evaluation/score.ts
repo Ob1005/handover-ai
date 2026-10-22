@@ -9,9 +9,9 @@ export function scoreCase(testCase: EvaluationCase, findings: Finding[]) {
   const matches = testCase.expected.map((expected) => {
     const anchor = normalizeWhitespace(expected.anchor);
     const index = [...remaining].find((i) => {
-      const quote = normalizeWhitespace(findings[i].agreementQuote);
+      const quote = normalizeWhitespace(findings[i].sourceQuote);
       return (
-        findings[i].evidence.agreement === "verified" &&
+        findings[i].evidence.source === "verified" &&
         findings[i].category === expected.category &&
         (quote.includes(anchor) ||
           (quote.length >= 15 && anchor.includes(quote)))

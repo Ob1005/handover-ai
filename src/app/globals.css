@@ -1930,3 +1930,102 @@ footer > span:first-child {
 .proposal-error {
   overflow-wrap: anywhere;
 }
+
+/* Deterministic comparison of the original note and current editor text. */
+.text-comparison {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.text-comparison summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.text-comparison > p {
+  margin: 0.75rem 0;
+  color: #53645e;
+  font-size: 0.875rem;
+}
+.diff-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  font-size: 0.8rem;
+}
+.diff-legend > span {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+.diff-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 32rem;
+  overflow: auto;
+  border: 1px solid #dde4df;
+}
+.diff-lines li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.diff-lines li > :last-child {
+  min-width: 0;
+}
+.diff-lines ins,
+.diff-lines del {
+  text-decoration: none;
+}
+.diff-marker {
+  flex: 0 0 1ch;
+  user-select: none;
+}
+.diff-added {
+  color: #14532d;
+  background: #eaf7ee;
+}
+.diff-removed {
+  color: #8a2030;
+  background: #fcecef;
+}
+.diff-unchanged {
+  color: #52605a;
+  background: #fff;
+}
+.baseline-finding {
+  margin-top: 1rem;
+}
+
+.supporting-documents {
+  margin: 1.25rem 0;
+  border: 1px solid var(--line);
+  padding: 1rem;
+  border-radius: 8px;
+  background: #fff;
+}
+.supporting-documents summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.supporting-documents > p {
+  margin: 0.75rem 0 1rem;
+  color: var(--muted);
+}
+.document-budget {
+  margin-top: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.information-authority {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--green);
+  background: var(--surface);
+  font-size: 0.85rem;
+}

@@ -14,6 +14,8 @@ import {
 import { Button } from "./ui/button";
 import {
   categoryLabels,
+  documentLabels,
+  informationLabels,
   classificationLabels,
   type AnalysisResult,
   type Classification,
@@ -25,12 +27,12 @@ export const statusIcons = {
   potentially_missing: TriangleAlert,
   needs_clarification: CircleHelp,
 };
-function Status({ value }: { value: Classification }) {
+function Status({ value, label }: { value: Classification; label?: string }) {
   const Icon = statusIcons[value];
   return (
     <span className={`badge ${value}`}>
       <Icon size={13} />
-      {classificationLabels[value]}
+      {label ?? classificationLabels[value]}
     </span>
   );
 }
@@ -42,6 +44,7 @@ export function FindingCard({
   review = { decision: "unreviewed", comment: "" },
   onReview = () => {},
   readOnly = false,
+  transferredFollowUp = false,
 }: {
   finding: Finding;
   index: number;
@@ -49,6 +52,7 @@ export function FindingCard({
   review?: Review;
   onReview?: (change: Partial<Review>) => void;
   readOnly?: boolean;
+  transferredFollowUp?: boolean;
 }) {
   return (
     <details
@@ -70,7 +74,7 @@ export function FindingCard({
           <h3>{finding.title}</h3>
         </div>
         <div className="finding-summary-right">
-          <Status value={finding.classification} />
+          <Status value={finding.classification} label={transferredFollowUp ? "Overført – krever oppfølging" : undefined} />
           {review.decision !== "unreviewed" && (
             <span className="reviewed-label">
               <CheckCheck size={13} />
@@ -81,26 +85,48 @@ export function FindingCard({
         </div>
       </summary>
       <div className="finding-body">
+        <p className="information-authority">
+          <strong>{informationLabels[finding.informationType]}</strong>
+          {finding.sourceDocumentId !== "agreement" &&
+            " · Ikke et bekreftet avtalevilkår"}
+          {finding.requiresConfirmation && " · Krever bekreftelse"}
+          {transferredFollowUp && " · Overført til notatet; saken er fortsatt åpen"}
+        </p>
         <p className="finding-description">{finding.description}</p>
         {finding.modelClassification !== finding.classification && (
           <p className="validation-warning">
-            Kildekontrollen krever avklaring på grunn av usikkert eller
-            manglende kildegrunnlag. Opprinnelig AI-forslag:{" "}
+            Kildegrunnlaget eller opplysningens autoritet krever avklaring.
+            Opprinnelig AI-forslag:{" "}
             {classificationLabels[finding.modelClassification]}.
           </p>
         )}
         <div className="finding-explanation">
-          <strong>Hvorfor dette er flagget</strong>
+          <strong>{transferredFollowUp ? "Hvordan saken er overført" : "Hvorfor dette er flagget"}</strong>
           <p>{finding.explanation}</p>
         </div>
         <div className="evidence-grid">
           <Evidence
-            title="Kundeavtale"
-            documentId="A · agreement"
-            filename={documents.agreement.name}
-            quote={finding.agreementQuote}
-            status={finding.evidence.agreement}
+            title={documentLabels[finding.sourceDocumentId]}
+            documentId={finding.sourceDocumentId}
+            filename={
+              documents[finding.sourceDocumentId]?.name ??
+              "Kilde ikke tilgjengelig"
+            }
+            quote={finding.sourceQuote}
+            status={finding.evidence.source}
           />
+          {finding.relatedSources.map((ref, i) => (
+            <Evidence
+              key={`${ref.documentId}-${i}`}
+              title={documentLabels[ref.documentId]}
+              documentId={ref.documentId}
+              filename={
+                documents[ref.documentId]?.name ?? "Kilde ikke tilgjengelig"
+              }
+              quote={ref.quote}
+              status={finding.evidence.relatedSources[i]}
+            />
+          ))}
           <Evidence
             title="Overleveringsnotater"
             documentId="B · handover"
@@ -119,7 +145,7 @@ export function FindingCard({
         {!readOnly && (
           <div className="human-review">
             <div className="human-review-title">
-              <strong>Din vurdering</strong>
+              <strong>Din vurdering{finding.classification === "covered" ? " (valgfritt)" : ""}</strong>
               <span>Er du enig i AI-funnet og klassifiseringen?</span>
             </div>
             <div className="review-buttons">

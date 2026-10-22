@@ -30,6 +30,12 @@ import {
   classificationLabels,
   classifications,
   documentSchema,
+  documentsSchema,
+  documentLabels,
+  supportingIds,
+  listDocuments,
+  MAX_TOTAL_TEXT_LENGTH,
+  type DocumentId,
   type AnalysisResult,
   type Classification,
   type Reviews,
@@ -39,6 +45,7 @@ import { getDemoAnalysis } from "@/lib/demo";
 import {
   getWorkflowStep,
   reviewProgress,
+  requiresReview,
   serializeSession,
   SESSION_KEY,
   updateReview,
@@ -48,7 +55,7 @@ import { validateFile } from "@/lib/file-validation";
 
 export function HandoverApp({ model }: { model: string }) {
   const [documents, setDocuments] = useState<
-    Partial<Record<"agreement" | "handover", UploadedDocument>>
+    Partial<Record<DocumentId, UploadedDocument>>
   >({});
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [reviews, setReviews] = useState<Reviews>({});
@@ -59,9 +66,7 @@ export function HandoverApp({ model }: { model: string }) {
   const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState<Classification | "all">("all");
   const [onlyUnreviewed, setOnlyUnreviewed] = useState(false);
-  const [documentView, setDocumentView] = useState<
-    "agreement" | "handover" | null
-  >(null);
+  const [documentView, setDocumentView] = useState<DocumentId | null>(null);
   const lock = useRef(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -90,7 +95,7 @@ export function HandoverApp({ model }: { model: string }) {
     }
   }, [result, reviews, ready]);
 
-  async function upload(file: File, id: "agreement" | "handover") {
+  async function upload(file: File, id: DocumentId) {
     if (lock.current) return;
     setError("");
     if (!consent) {
@@ -158,9 +163,34 @@ export function HandoverApp({ model }: { model: string }) {
       80,
     );
   }
+  function removeSupporting(id: (typeof supportingIds)[number]) {
+    if (busy) return;
+    setDocuments((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setDocumentView(null);
+    setResult(null);
+    setReviews({});
+    setError("");
+    setFilter("all");
+    setOnlyUnreviewed(false);
+  }
+  const totalCharacters = listDocuments(documents).reduce(
+    (sum, d) => sum + d.text.length,
+    0,
+  );
   async function analyze() {
     if (lock.current || !documents.agreement || !documents.handover || !consent)
       return;
+    const checkedDocuments = documentsSchema.safeParse(documents);
+    if (!checkedDocuments.success) {
+      setError(
+        "Kontroller dokumentene. Maksimalt 40 000 tegn samlet; fjern eller forkort en kilde. Ingen tekst avkortes automatisk.",
+      );
+      return;
+    }
     lock.current = true;
     setBusy("analysis");
     setError("");
@@ -215,8 +245,8 @@ export function HandoverApp({ model }: { model: string }) {
       (f) =>
         (filter === "all" || f.classification === filter) &&
         (!onlyUnreviewed ||
-          !reviews[f.id] ||
-          reviews[f.id].decision === "unreviewed"),
+          (requiresReview(f) &&
+            (!reviews[f.id] || reviews[f.id].decision === "unreviewed"))),
     ) ?? [];
   const counts = Object.fromEntries(
     classifications.map((c) => [
@@ -276,8 +306,8 @@ export function HandoverApp({ model }: { model: string }) {
               <div className="eyebrow">FRA SALG TIL LEVERANSE</div>
               <h1>Få med det som er avtalt.</h1>
               <p>
-                Sammenlign kundeavtalen med overleveringen før prosjektet
-                starter.
+                Sammenlign avtale og salgskilder med overleveringen før
+                prosjektet starter.
               </p>
             </div>
           </div>
@@ -326,7 +356,10 @@ export function HandoverApp({ model }: { model: string }) {
             <div className="section-heading">
               <div>
                 <h2 id="documents-title">Dokumentgrunnlag</h2>
-                <p>To dokumenter. Én kontroll av det som skal leveres.</p>
+                <p>
+                  Avtale og overlevering kreves. Legg eventuelt til opptil tre
+                  salgskilder.
+                </p>
               </div>
               {result?.mode === "live" && (
                 <Button
@@ -365,6 +398,41 @@ export function HandoverApp({ model }: { model: string }) {
                 />
               ))}
             </div>
+            <details
+              className="supporting-documents"
+              open={supportingIds.some((id) => !!documents[id]) || undefined}
+            >
+              <summary>Støttedokumenter (valgfritt, maks 3)</summary>
+              <p>
+                Tilbud, korrespondanse og møtenotater kan forklare forventninger
+                og praktiske behov. De overstyrer ikke den signerte avtalen.
+              </p>
+              <div className="upload-grid">
+                {supportingIds.map((id) => (
+                  <UploadCard
+                    key={id}
+                    id={id}
+                    document={documents[id]}
+                    disabled={!!busy || !consent || !ready}
+                    loading={busy === id}
+                    onUpload={(file) => upload(file, id)}
+                    onView={() => setDocumentView(id)}
+                    onRemove={() => removeSupporting(id)}
+                  />
+                ))}
+              </div>
+            </details>
+            <p
+              className={
+                totalCharacters > MAX_TOTAL_TEXT_LENGTH
+                  ? "proposal-error"
+                  : "document-budget"
+              }
+              role="status"
+            >
+              {totalCharacters.toLocaleString("nb-NO")} / 40 000 tegn samlet ·
+              maks. 20 000 per dokument. Ingen automatisk avkorting.
+            </p>
             <div className="analyze-bar">
               <div className="model-info">
                 <span>
@@ -376,6 +444,7 @@ export function HandoverApp({ model }: { model: string }) {
                 disabled={
                   !!busy ||
                   !consent ||
+                  totalCharacters > MAX_TOTAL_TEXT_LENGTH ||
                   !documents.agreement ||
                   !documents.handover ||
                   result?.mode === "live"
@@ -478,7 +547,7 @@ export function HandoverApp({ model }: { model: string }) {
                   <div className="eyebrow">KONTROLLRESULTAT</div>
                   <h2 id="results-title">Dette bør teamet se nærmere på.</h2>
                   <p>
-                    AI foreslår. Du kontrollerer kildene og vurderer hvert funn.
+                    AI foreslår. Vurder mulige mangler og avklaringsbehov. Dekkede krav kan kontrolleres valgfritt.
                   </p>
                 </div>
                 <span className="unresolved">
@@ -488,9 +557,9 @@ export function HandoverApp({ model }: { model: string }) {
               </div>
               <div className="summary-grid">
                 <div className="summary-card">
-                  <span>Forpliktelser identifisert</span>
+                  <span>Funn identifisert</span>
                   <strong>{result.findings.length}</strong>
-                  <small>i kundeavtalen</small>
+                  <small>i kildegrunnlaget</small>
                 </div>
                 {(
                   [
@@ -529,25 +598,25 @@ export function HandoverApp({ model }: { model: string }) {
                   <strong>
                     {progress.reviewed} av {progress.total}
                   </strong>{" "}
-                  funn vurdert
+                  funn som krever vurdering er gjennomgått
                 </span>
                 <div
                   className="progress-track"
                   role="progressbar"
                   aria-label="Vurderingsfremdrift"
-                  aria-valuenow={progress.reviewed}
+                  aria-valuenow={progress.total ? progress.reviewed : 1}
                   aria-valuemin={0}
                   aria-valuemax={progress.total || 1}
                 >
                   <div
                     style={{
-                      width: `${progress.total ? (progress.reviewed / progress.total) * 100 : 0}%`,
+                      width: `${progress.total ? (progress.reviewed / progress.total) * 100 : 100}%`,
                     }}
                   />
                 </div>
                 <span>
-                  {progress.unresolved === 0 && progress.total > 0
-                    ? "Alle funn er vurdert"
+                  {progress.unresolved === 0
+                    ? "Alle nødvendige vurderinger er fullført"
                     : "Vurdering lagres i denne nettleserøkten"}
                 </span>
               </div>
@@ -579,7 +648,7 @@ export function HandoverApp({ model }: { model: string }) {
                     checked={onlyUnreviewed}
                     onChange={(e) => setOnlyUnreviewed(e.target.checked)}
                   />
-                  Kun uvurderte
+                  Kun funn som krever vurdering
                 </label>
               </div>
               <div className="findings-list">
@@ -637,7 +706,7 @@ export function HandoverApp({ model }: { model: string }) {
                 allReviewed={progress.unresolved === 0}
                 syntheticConfirmed={consent}
                 activity={
-                  busy === "proposal" || busy === "verification" ? busy : null
+                  busy === "generation" || busy === "verification" ? busy : null
                 }
                 onActivity={setBusy}
               />
@@ -662,7 +731,7 @@ export function HandoverApp({ model }: { model: string }) {
                   <span className="mini-label">INGEN API-NØKKEL NØDVENDIG</span>
                   <strong>Prøv et realistisk eksempel</strong>
                   <p>
-                    En avtale, en overlevering og syv forpliktelser.
+                    En avtale, en overlevering og en fiktiv kunde-e-post.
                     <br />
                     Se hva som ble med – og hva som mangler.
                   </p>
@@ -702,28 +771,41 @@ function UploadCard({
   loading,
   onUpload,
   onView,
+  onRemove,
 }: {
-  id: "agreement" | "handover";
+  id: DocumentId;
   document?: UploadedDocument;
   disabled: boolean;
   loading: boolean;
   onUpload: (file: File) => void;
   onView: () => void;
+  onRemove?: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
-  const title =
-    id === "agreement" ? "Kundeavtale" : "Interne overleveringsnotater";
+  const title = documentLabels[id];
   return (
     <div className="upload-card">
       <div className="upload-card-heading">
-        <span className="doc-letter">{id === "agreement" ? "A" : "B"}</span>
+        <span className="doc-letter">
+          {
+            {
+              agreement: "A",
+              handover: "B",
+              proposal: "C",
+              correspondence: "D",
+              meeting_notes: "E",
+            }[id]
+          }
+        </span>
         <div>
           <h3>{title}</h3>
           <p>
             {id === "agreement"
               ? "Hva har vi forpliktet oss til?"
-              : "Hva har leveringsteamet fått vite?"}
+              : id === "handover"
+                ? "Hva har leveringsteamet fått vite?"
+                : "Valgfri salgskilde · PDF eller TXT"}
           </p>
         </div>
       </div>
@@ -791,6 +873,15 @@ function UploadCard({
               <FileText size={13} />
               Se tekst
             </button>
+            {onRemove && (
+              <button
+                onClick={onRemove}
+                disabled={disabled}
+                aria-label={`Fjern ${title.toLowerCase()}`}
+              >
+                Fjern
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -798,7 +889,9 @@ function UploadCard({
               <FileText size={13} />
               {id === "agreement"
                 ? "Signert avtale eller arbeidsbeskrivelse"
-                : "Internt dokument fra salg til leveranse"}
+                : id === "handover"
+                  ? "Internt dokument fra salg til leveranse"
+                  : "Støttekilde – ikke avtalevilkår"}
             </span>
             <span>20 000 tegn</span>
           </>

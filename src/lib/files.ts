@@ -50,6 +50,7 @@ export async function extractDocument(
   }
   return documentSchema.parse({
     id,
+    documentType: id,
     name: file.name,
     text: validateExtractedText(text),
     bytes: file.size,

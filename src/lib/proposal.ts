@@ -1,13 +1,18 @@
 import { z } from "zod";
+import { reviewProgress } from "./review";
 import {
   analysisSchema,
   documentSchema,
   MAX_TEXT_LENGTH,
+  listDocuments,
+  documentsSchema,
+  MAX_TOTAL_TEXT_LENGTH,
   reviewsSchema,
   type AnalysisResult,
   type Reviews,
 } from "./schemas";
 import { quoteExists } from "./evidence";
+import { hasCompleteBaseline, type ReanalysisResult } from "./reanalysis";
 
 export const proposalRequestSchema = z
   .object({
@@ -24,14 +29,12 @@ export const proposalRequestSchema = z
     )
       ctx.addIssue({ code: "custom", message: "Ugyldige funn-ID-er." });
     if (
-      analysis.findings.some(
-        (f) => !reviews[f.id] || reviews[f.id].decision === "unreviewed",
-      )
+      reviewProgress(analysis.findings, reviews).unresolved > 0
     )
       ctx.addIssue({
         code: "custom",
         message:
-          "Alle funn må være bekreftet eller avvist før forslag kan genereres.",
+          "Potensielt manglende funn og funn som må avklares må være bekreftet eller avvist før forslag kan genereres.",
       });
     if (Object.keys(reviews).some((id) => !ids.has(id)))
       ctx.addIssue({
@@ -70,8 +73,16 @@ export type Proposal = z.infer<typeof proposalSchema>;
 export function proposalContext(input: ProposalRequest) {
   const parsed = proposalRequestSchema.parse(input);
   return {
-    documents: Object.values(parsed.analysis.documents).map((d) => ({
+    maxDraftCharacters: Math.min(
+      MAX_TEXT_LENGTH,
+      MAX_TOTAL_TEXT_LENGTH -
+        listDocuments(parsed.analysis.documents)
+          .filter((d) => d.id !== "handover")
+          .reduce((sum, d) => sum + d.text.length, 0),
+    ),
+    documents: listDocuments(parsed.analysis.documents).map((d) => ({
       documentId: d.id,
+      documentType: d.documentType,
       text: d.text,
     })),
     findings: parsed.analysis.findings.map((f) => ({
@@ -80,17 +91,27 @@ export function proposalContext(input: ProposalRequest) {
       classification: f.classification,
       certainty: f.certainty,
       explanation: f.explanation,
-      agreementQuote: f.agreementQuote,
+      sourceDocumentId: f.sourceDocumentId,
+      sourceQuote: f.sourceQuote,
+      informationType: f.informationType,
+      requiresConfirmation: f.requiresConfirmation,
+      relatedSources: f.relatedSources.map((ref) => ({
+        ...ref,
+        verified: quoteExists(
+          ref.quote,
+          parsed.analysis.documents[ref.documentId]?.text ?? "",
+        ),
+      })),
       handoverQuote: f.handoverQuote,
       // Never trust verification flags submitted by the browser.
-      agreementQuoteVerified: quoteExists(
-        f.agreementQuote,
-        parsed.analysis.documents.agreement.text,
+      sourceQuoteVerified: quoteExists(
+        f.sourceQuote,
+        parsed.analysis.documents[f.sourceDocumentId]?.text ?? "",
       ),
       handoverQuoteVerified:
         f.handoverQuote !== null &&
         quoteExists(f.handoverQuote, parsed.analysis.documents.handover.text),
-      review: parsed.reviews[f.id],
+      review: parsed.reviews[f.id] ?? { decision: "unreviewed", comment: "" },
     })),
   };
 }
@@ -102,9 +123,13 @@ export function createProposal(
 ): Proposal {
   const parsed = proposalContentSchema.parse(content);
   const source = proposalRequestSchema.parse(input);
+  documentsSchema.parse({
+    ...source.analysis.documents,
+    handover: draftDocument(parsed.text),
+  });
   const allowed = new Set(
     source.analysis.findings
-      .filter((f) => source.reviews[f.id].decision === "confirmed")
+      .filter((f) => source.reviews[f.id]?.decision === "confirmed")
       .map((f) => f.id),
   );
   if (parsed.changes.some((c) => !allowed.has(c.findingId)))
@@ -122,6 +147,7 @@ export function createProposal(
 export function draftDocument(text: string) {
   return documentSchema.parse({
     id: "handover",
+    documentType: "handover",
     name: "Oppdatert_overleveringsnotat.txt",
     type: "txt",
     bytes: new TextEncoder().encode(text).length,
@@ -142,13 +168,15 @@ export function canApproveDraft(
   text: string,
   sourceSignature: string,
   currentSignature: string,
-  check: AnalysisResult | null,
+  check: ReanalysisResult | null,
+  baseline: AnalysisResult,
   working = false,
 ) {
   return (
     !working &&
     sourceSignature === currentSignature &&
     !!check &&
+    hasCompleteBaseline(baseline, check) &&
     text.trim() === check.documents.handover.text
   );
 }

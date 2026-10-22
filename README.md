@@ -1,6 +1,6 @@
 # Handover AI
 
-**Fra signert kundeavtale til en etterprøvbar overlevering.** Handover AI sammenligner en kundeavtale med interne overleveringsnotater, viser mulige mangler med kildesitater og lar en fagperson vurdere hvert funn. Etter gjennomgangen kan AI lage et oppdatert notat som kontrolleres på nytt før manuell godkjenning.
+**Fra signert kundeavtale til en etterprøvbar overlevering.** Handover AI sammenligner en signert kundeavtale og valgfrie salgskilder med interne overleveringsnotater. Mulige mangler, forventninger og kildekonflikter vises med sitater som en fagperson kan kontrollere. Etter gjennomgangen kan AI lage et oppdatert notat som kontrolleres på nytt før manuell godkjenning.
 
 Et portfolioprosjekt utviklet av en nyutdannet MSc-kandidat i Information Systems – Business Analytics. Prosjektet demonstrerer ett komplett arbeidsløp med prosessforståelse, fullstack-utvikling, AI-integrasjon og kvalitetssikring. Grensesnittet er på norsk. Demoen fungerer uten API-nøkkel.
 
@@ -23,16 +23,34 @@ Handover AI undersøker om AI-støttet sammenligning med kildebelegg kan hjelpe 
 
 ## Arbeidsflyt
 
-1. **Legg til dokumenter:** Bekreft at innholdet er syntetisk. Last opp kundeavtale og overleveringsnotater som PDF med markerbar tekst eller UTF-8 TXT. Kontroller uttrukket tekst.
-2. **Analyser med AI:** Gemini identifiserer forpliktelser og sammenligner betydningen i de to dokumentene. Funn klassifiseres som **Dekket**, **Potensielt manglende** eller **Må avklares**.
-3. **Vurder og avklar:** Åpne kildesitater, filtrer funn, bekreft eller avvis hvert funn og legg eventuelt til kommentar. Bekreftet betyr at du er enig i funnet, ikke at problemet er løst.
-4. **Generer forslag:** Når alle funn er vurdert, vises **Oppdater forslag**. Les og rediger utkastet, analyser det mot den samme kundeavtalen, undersøk gjenstående problemer og godkjenn notatet manuelt. Last ned som TXT.
+1. **Legg til dokumenter:** Bekreft syntetisk innhold. Last opp signert kundeavtale og overleveringsnotat. Valgfritt: ett tilbud, én kundekorrespondanse og ett møtenotat – inntil tre støttedokumenter. Bruk PDF med markerbar tekst eller UTF-8 TXT, og kontroller tekstuttrekket. Korrespondanse lastes opp som dokument; ingen e-postintegrasjon.
+2. **Analyser med AI:** Gemini sammenligner relevante opplysninger fra alle kildene med overleveringen og skiller avtaleforpliktelser fra salgsinformasjon og kildekonflikter. Funn klassifiseres som **Dekket**, **Potensielt manglende** eller **Må avklares**.
+3. **Vurder og avklar:** Åpne kildesitater, filtrer funn, bekreft eller avvis hvert funn og legg eventuelt til kommentar. Bekreftet betyr at du er enig i funnet, ikke at problemet er løst. Bare «Potensielt manglende» og «Må avklares» krever vurdering før du går videre. Vurdering av dekkede krav er valgfri; de beholdes i ny kontroll.
+4. **Generer forslag:** Når alle potensielt manglende funn og funn som må avklares er vurdert, vises **Oppdater forslag**. Les og rediger utkastet, se faktiske tekstendringer og kontroller det mot de opprinnelige funnene fra første analyse. Undersøk gjenstående problemer og godkjenn notatet manuelt. Last ned som TXT.
+
+Den nye kontrollen bruker de samme funn-ID-ene, opplysningene og kildesitatene som første analyse; Gemini vurderer bare dekningen i det redigerte notatet. Manglende eller dupliserte svar beholdes som **Må avklares**, og godkjenning sperres til alle opprinnelige funn er vurdert. Også et tomt modellsvar gir ett synlig avklaringspunkt per opprinnelig funn. Første klassifisering og kildegrunnlag beholdes for sammenligning.
+
+**Se faktiske tekstendringer** viser forskjellen mellom originalnotatet og gjeldende tekst i redigeringsfeltet: grønt for tillegg, rødt for slettet tekst og nøytralt for uendret innhold. Beregningen skjer lokalt, linje for linje, og oppdateres også ved manuelle redigeringer. AI-ens endringsoppsummering er separat. Ingen nye avhengigheter er lagt til.
 
 Endringer i dokumenter nullstiller analysen. Endringer i utkastet eller vurderingsgrunnlaget gjør tidligere kontroll og godkjenning ugyldig. En ny sideåpning starter med tom kontroll; ingen tidligere resultater vises automatisk.
 
+## Kilder og autoritet
+
+| Dokumentplass / stabil ID | Obligatorisk | Rolle                                                    |
+| ------------------------- | ------------ | -------------------------------------------------------- |
+| `agreement`               | Ja           | Signert kundeavtale, primærkilde for avtaleforpliktelser |
+| `handover`                | Ja           | Internnotatet som kontrolleres                           |
+| `proposal`                | Nei          | Tilbud eller salgsforslag                                |
+| `correspondence`          | Nei          | Kundekorrespondanse, for eksempel fiktiv e-post i TXT    |
+| `meeting_notes`           | Nei          | Møtenotater eller annen relevant salgsinformasjon        |
+
+Støttekilder kan vise forventninger, salgsløfter og praktiske behov, men endrer aldri avtalen automatisk. Funn merkes som **Avtaleforpliktelse**, **Opplysning fra salgsfasen** eller **Kildekonflikt**. Konflikter og opplysninger som krever bekreftelse blir **Må avklares**, selv om notatet gjengir dem. Ukomplisert salgsinformasjon kan være dekket uten å være et bekreftet avtalevilkår.
+
+Hvert funn har en primærkilde og eventuelle tilleggssitater, alle kontrollert mot den angitte filen. Gemini skal samle samme opplysning fra flere kilder i ett funn. Koden slår også sammen identiske sitater og beskrivelser innen samme kategori og beholder henvisningene. Speilvendte konfliktfunn fra ulike primærkilder samles også når kategori og hele settet av kildeutdrag er identisk. Semantiske duplikater med ulike kildeutdrag kan fortsatt forekomme.
+
 ## Skjermbilder
 
-Skjermbildene viser bare syntetiske eksempler fra de fiktive selskapene Nordlys Programvare AS og Fjordlogistikk AS.
+De tre første skjermbildene viser den opprinnelige todokumentversjonen. Alle bildene viser bare syntetiske eksempler fra de fiktive selskapene Nordlys Programvare AS og Fjordlogistikk AS.
 
 ### Dokumentgrunnlag
 
@@ -46,6 +64,10 @@ Skjermbildene viser bare syntetiske eksempler fra de fiktive selskapene Nordlys 
 
 ![Steg 04 med forslag til oppdatert overleveringsnotat](docs/proposal-preview.png)
 
+### Kildekonflikt i flerdokumentversjonen
+
+![Avtalens avgrensning og motstridende forventning i kundekorrespondansen](docs/multi-source-preview.png)
+
 ## Arkitektur
 
 ```mermaid
@@ -57,7 +79,7 @@ flowchart TD
     V --> H[Menneskelig vurdering av funn]
     H --> D[Server: Gemini lager forslag fra vurderingene]
     D --> E[Bruker kontrollerer og redigerer utkast]
-    E --> R[Ny analyse mot samme kundeavtale]
+    E --> R[Ny kontroll av faste opprinnelige funn]
     R --> G
     V --> C[Bruker undersøker ny kontroll]
     C --> A[Manuell godkjenning og TXT-nedlasting]
@@ -65,7 +87,7 @@ flowchart TD
 
 Alle Gemini-kall går via serveren. API-nøkkelen leses fra lokale miljøvariabler og sendes aldri til nettleseren. Dokumenttekst behandles som ubetrodd data; instruksjoner i dokumenter skal ikke følges. Modellens JSON-svar valideres med Zod før bruk.
 
-AI gjør den semantiske tolkningen. Applikasjonskode kontrollerer kildesitater med normalisert Unicode og mellomrom, beregner verifikasjonsstatus og oppretter funn-ID-er. Uverifiserte sitater og tvetydig avtalespråk gir **Må avklares**. Mennesket eier beslutningene. Et verifisert sitat beviser at teksten finnes, ikke at tolkningen er riktig.
+AI gjør den semantiske tolkningen. Applikasjonskode kontrollerer kildesitater med normalisert Unicode og mellomrom, beregner verifikasjonsstatus og oppretter funn-ID-er. Uverifiserte sitater, kildekonflikter og opplysninger som krever bekreftelse gir **Må avklares**. Ved ny kontroll vurderes overføringen separat: Et åpent punkt som er tydelig dokumentert med verifiserte sitater vises som **Overført – krever oppfølging**, og telles ikke som en mangel i notatet. Saken blir ikke dermed løst eller godkjent. Mennesket eier beslutningene. Et verifisert sitat beviser at teksten finnes, ikke at tolkningen er riktig.
 
 | Teknologi                                          | Bruk                                             |
 | -------------------------------------------------- | ------------------------------------------------ |
@@ -79,6 +101,7 @@ AI gjør den semantiske tolkningen. Applikasjonskode kontrollerer kildesitater m
 ```text
 src/app/api/documents/    Filvalidering og tekstuttrekk
 src/app/api/analyze/      Live-sammenligning og validerte resultater
+src/app/api/reanalyze/    Vurdering av fast kravgrunnlag mot redigert utkast
 src/app/api/proposal/     Forslag etter fullført menneskelig vurdering
 src/components/          Dokumentfelt, funn, vurdering og forslagseditor
 src/lib/                 Skjemaer, sitatkontroll, demo og reviewlogikk
@@ -86,7 +109,7 @@ src/lib/server/          Gemini-integrasjon, feil og forespørselsgrenser
 evaluation/              Ti syntetiske dokumentpar og poengberegning
 tests/                   Automatiske tester uten live-kall
 scripts/                 Live-evaluering og lokal hemmelighetskontroll
-public/examples/         Syntetiske TXT-dokumenter
+public/examples/         Syntetisk avtale, overlevering og kunde-e-post
 docs/                    Skjermbilder, teknisk guide og faktisk evalueringsrapport
 ```
 
@@ -127,13 +150,13 @@ Bruk **bare syntetiske, ikke-konfidensielle dokumenter**. Ved live-analyse og fo
 
 |                 | Demo                                         | Live                                                      |
 | --------------- | -------------------------------------------- | --------------------------------------------------------- |
-| Dokumenter      | Medfølgende syntetiske eksempler             | Opplastede syntetiske PDF/TXT-filer, eller eksempelfilene |
+| Dokumenter      | Avtale, notat og fiktiv kunde-e-post         | Opplastede syntetiske PDF/TXT-filer, eller eksempelfilene |
 | Første analyse  | Forhåndsberegnede, validerte funn            | Faktisk Gemini-kall                                       |
 | Oppdatert notat | Merket, regelbasert utkast                   | Faktisk Gemini-kall med beslutninger og kommentarer       |
-| Ny kontroll     | Begrenset kontroll av kjente eksempelsitater | Ny Gemini-analyse mot samme avtale                        |
+| Ny kontroll     | Begrenset kontroll av kjente eksempelsitater | Gemini vurderer alle opprinnelige funn og kilder          |
 | Nøkkel          | Ikke nødvendig                               | Lokal servernøkkel nødvendig                              |
 
-For en demonstrasjon på 2–3 minutter: åpne demoen, vis manglende ERP-integrasjon og motstridende datoer, sammenlign «fem superbrukere» med «fem nøkkelbrukere», vurder alle funn og vis forslag, ny kontroll og godkjenning. Demoens kontroll er ikke en generell semantisk analyse av frie redigeringer.
+For en demonstrasjon på 2–3 minutter: åpne demoen, vis manglende ERP-integrasjon, datoavvik og e-postens forventning om fakturamigrering i strid med avtalen. Vis det separate Teams-ønsket, vurder de fem funnene som krever oppfølging og vis forslag, ny kontroll og godkjenning. Demoens kontroll er ikke en generell semantisk analyse av frie redigeringer.
 
 ### Produksjonsbygg lokalt
 
@@ -154,11 +177,11 @@ pnpm typecheck
 pnpm secrets:check
 ```
 
-Kjør bygg og separat TypeScript-kontroll etter hverandre; Next.js regenererer typefiler under bygg. Testene bruker SDK-mock og ekte lokal PDF/TXT-ekstraksjon, uten å bruke Gemini-kvote. De dekker blant annet filgrenser, ugyldige svar, sitatkontroll, klassifisering, review, forslag, foreldede godkjenninger og hemmelighetskontrollen. Se [verifiseringsloggen](docs/verification.md) for faktisk kjørt status.
+Kjør bygg og separat TypeScript-kontroll etter hverandre; Next.js regenererer typefiler under bygg. Testene bruker SDK-mock og ekte lokal PDF/TXT-ekstraksjon, uten å bruke Gemini-kvote. De dekker blant annet filgrenser, ugyldige svar, sitatkontroll, klassifisering, review, forslag, foreldede godkjenninger, manglende vurderinger i ny kontroll, lokal tekstsammenligning og hemmelighetskontrollen. Se [verifiseringsloggen](docs/verification.md) for faktisk kjørt status.
 
-### Faktiske evalueringsresultater
+### Historiske evalueringsresultater – bare todokumentversjonen
 
-Én live-kjøring **20. oktober 2026** med `gemini-3.5-flash-lite` fullførte **10 av 10 syntetiske dokumentpar uten API-feil**. Dette er historiske, lagrede resultater, ikke et løfte om dagens modelltilgang eller fremtidig kvalitet.
+Tallene nedenfor gjelder kun den opprinnelige versjonen med én avtale og ett internnotat. De måler ikke flerdokumentfunksjonaliteten. Én live-kjøring **20. oktober 2026** med `gemini-3.5-flash-lite` fullførte **10 av 10 syntetiske dokumentpar uten API-feil**. Dette er historiske, lagrede resultater, ikke et løfte om dagens modelltilgang eller fremtidig kvalitet.
 
 | Måling                                         | Resultat       |
 | ---------------------------------------------- | -------------- |
@@ -181,16 +204,17 @@ pnpm evaluate --live
 pnpm evaluate --live --case=02-semantic-training
 ```
 
-Dette sender faktiske forespørsler og bruker prosjektets kvote. Resultater lagres i ignorert `evaluation-results/`. Skriptet bruker ingen forhåndsberegnede svar eller automatisk retry. Nye rapporter må gjennomgås for konfidensielt innhold før de eventuelt legges i `docs/`.
+Evalueringssettet inneholder fortsatt bare todokumentpar. Kjøring mot dagens kode gir nye resultater og reproduserer ikke nødvendigvis den historiske rapporten. Dette sender faktiske forespørsler og bruker prosjektets kvote. Resultater lagres i ignorert `evaluation-results/`. Skriptet bruker ingen forhåndsberegnede svar eller automatisk retry. Nye rapporter må gjennomgås for konfidensielt innhold før de eventuelt legges i `docs/`.
 
 ## Sikkerhet og avgrensninger
 
-- PDF/TXT: maksimalt 2 MiB og 20 000 teksttegn per dokument, 40 PDF-sider og 40 funn. Skannede og teksttomme PDF-er avvises; ingen OCR.
+- PDF/TXT: maksimalt 2 MiB og 20 000 teksttegn per dokument, 40 PDF-sider og 40 funn. Maksimalt 40 000 tegn samlet over alle fem dokumentplasser, også når utkastet erstatter det opprinnelige notatet. Dette beholder det tidligere tekstbudsjettet for to dokumenter; nye kilder må dele plassen. Grenser håndheves uten skjult avkorting. Analyseforespørselen er fortsatt begrenset til 260 000 byte, forslag og ny kontroll til 512 000 byte. Skannede og teksttomme PDF-er avvises; ingen OCR.
 - Servervalidering, størrelsesbegrenset body, origin-kontroll og enkel struping. Analyse, forslag og ny kontroll deler fem AI-kall per ti minutter og én samtidig forespørsel per prosess.
 - Dokumenter og svar gjengis som tekst. Modellsvar og rå leverandørfeil brukes ikke som HTML eller logges som dokumentinnhold.
 - Reviewdata beholdes lokalt i den aktive nettleserøkten. Utkast og godkjenning ligger i minnet; en ny sideåpning nullstiller kontrollen.
+- Første analyse kan overse relevant informasjon fra både avtale og støttekilder. Fast kontrollgrunnlag beskytter bare funn som faktisk ble identifisert.
 - PDF-uttrekk kan gi feil leserekkefølge. En modell kan overse krav eller tolke et verifisert sitat feil. Systeminstrukser eliminerer ikke prompt injection.
-- Ny analyse vurderer dekning av avtalen og fanger ikke nødvendigvis alle udokumenterte tillegg i et generert notat. Menneskelig kontroll er nødvendig, også ved null flaggede mangler.
+- Ny kontroll vurderer dekning av det faste opprinnelige kildegrunnlaget og fanger ikke nødvendigvis alle udokumenterte tillegg i et generert notat. Menneskelig kontroll er nødvendig, også ved null flaggede mangler.
 - Strupingen er prosessbasert og ingen erstatning for autentisering eller produksjonssikring. Ingen juridisk godkjenning eller garanti for etterlevelse gis.
 
 `.gitignore` utelater miljøfiler, sertifikater, private mapper, logger, lokale evalueringer og byggeoutput. `pnpm secrets:check` kontrollerer publiserbare filer og lokale Git-objekter, inkludert historikk, staging og utilgjengelige objekter, uten å skrive ut hemmelighetsverdier. Kontrollen bruker kjente tokenmønstre og hemmeligheter fra lokale miljøfiler; den kan ikke bevise at vilkårlig innhold er ikke-konfidensielt. Se [sikkerhetsrutinen](SECURITY.md) og [den lokale publiseringskontrollen](docs/repository-readiness.md).

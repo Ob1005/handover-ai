@@ -1,7 +1,7 @@
 import "server-only";
 import { extractDocument } from "@/lib/files";
 import { AppError, errorResponse } from "@/lib/errors";
-import { MAX_FILE_BYTES } from "@/lib/schemas";
+import { MAX_FILE_BYTES, documentIds } from "@/lib/schemas";
 import {
   acquireLimit,
   assertSameOrigin,
@@ -22,14 +22,22 @@ export async function POST(request: Request) {
     }).formData();
     const file = form.get("file");
     const id = form.get("id");
-    if (!(file instanceof File) || (id !== "agreement" && id !== "handover"))
+    if (
+      !(file instanceof File) ||
+      !documentIds.includes(id as (typeof documentIds)[number])
+    )
       throw new AppError("Velg en fil og riktig dokumentrolle.");
     if (form.get("syntheticOnly") !== "true")
       throw new AppError(
         "Bekreft at dokumentene er syntetiske og uten konfidensielle opplysninger.",
       );
     return Response.json(
-      { document: await extractDocument(file, id) },
+      {
+        document: await extractDocument(
+          file,
+          id as (typeof documentIds)[number],
+        ),
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

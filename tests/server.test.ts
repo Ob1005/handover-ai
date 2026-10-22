@@ -132,7 +132,7 @@ describe("analysis HTTP route with real validation and mocked provider", () => {
     const body = await response.json();
     expect(body.result.mode).toBe("live");
     expect(body.result.findings).toHaveLength(7);
-    expect(body.result.findings[0].evidence.agreement).toBe("verified");
+    expect(body.result.findings[0].evidence.source).toBe("verified");
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
   it("returns the actionable missing-key message instead of demo data", async () => {

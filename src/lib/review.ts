@@ -6,18 +6,19 @@ import {
   type Review,
   type Reviews,
   type UploadedDocument,
+  type DocumentId,
 } from "./schemas";
 export const SESSION_KEY = "handover-ai-session-v1";
 export type WorkflowActivity =
-  "agreement" | "handover" | "analysis" | "proposal" | "verification" | null;
+  DocumentId | "analysis" | "verification" | "generation" | null;
 export function getWorkflowStep(
-  documents: Partial<Record<"agreement" | "handover", UploadedDocument>>,
+  documents: Partial<Record<DocumentId, UploadedDocument>>,
   busy: WorkflowActivity,
   result: AnalysisResult | null,
   reviews: Reviews,
 ): 1 | 2 | 3 | 4 {
   if (busy === "analysis") return 2;
-  if (busy === "proposal" || busy === "verification") return 4;
+  if (busy === "generation" || busy === "verification") return 4;
   if (busy) return 1;
   if (result)
     return reviewProgress(result.findings, reviews).unresolved === 0 ? 4 : 3;
@@ -36,16 +37,20 @@ export function updateReview(
     },
   });
 }
+export function requiresReview(finding: Pick<Finding, "classification">) {
+  return finding.classification !== "covered";
+}
 export function reviewProgress(findings: Finding[], reviews: Reviews) {
-  const reviewed = findings.filter(
+  const required = findings.filter(requiresReview);
+  const reviewed = required.filter(
     (f) =>
       reviews[f.id]?.decision === "confirmed" ||
       reviews[f.id]?.decision === "rejected",
   ).length;
   return {
     reviewed,
-    unresolved: findings.length - reviewed,
-    total: findings.length,
+    unresolved: required.length - reviewed,
+    total: required.length,
   };
 }
 export function parseSession(value: string | null) {

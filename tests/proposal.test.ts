@@ -13,7 +13,7 @@ import {
   createDemoProposal,
   checkDemoProposal,
 } from "../src/lib/proposal-demo";
-import { updateReview } from "../src/lib/review";
+import { updateReview, reviewProgress, getWorkflowStep } from "../src/lib/review";
 
 const { generate } = vi.hoisted(() => ({ generate: vi.fn() }));
 vi.mock("@google/genai", () => ({
@@ -27,7 +27,7 @@ import { POST } from "../src/app/api/proposal/route";
 import { generateProposal } from "../src/lib/server/proposal";
 
 function input(): ProposalRequest {
-  const analysis = getDemoAnalysis();
+  const analysis = getDemoAnalysis(false);
   return {
     analysis,
     reviews: Object.fromEntries(
@@ -40,7 +40,40 @@ function input(): ProposalRequest {
   };
 }
 describe("proposal input, source handling and decisions", () => {
-  it("requires every finding to be reviewed and rejects unrelated or duplicate IDs", () => {
+  it("allows the demo to continue with only actionable findings reviewed and keeps all baseline findings", () => {
+    const data = input();
+    const covered = data.analysis.findings.filter(f => f.classification === "covered");
+    for (const f of covered) delete data.reviews[f.id];
+    expect(proposalRequestSchema.safeParse(data).success).toBe(true);
+    expect(reviewProgress(data.analysis.findings, data.reviews)).toEqual({ reviewed: 3, unresolved: 0, total: 3 });
+    expect(getWorkflowStep(data.analysis.documents, null, data.analysis, data.reviews)).toBe(4);
+    const context = proposalContext(data);
+    expect(context.findings).toHaveLength(7);
+    expect(context.findings.find(f => f.id === covered[0].id)?.review.decision).toBe("unreviewed");
+    const proposal = createDemoProposal(data);
+    const check = checkDemoProposal(data.analysis, draftDocument(proposal.text));
+    expect(check.findings.map(f => f.id)).toEqual(data.analysis.findings.map(f => f.id));
+    const optional = updateReview(data.reviews, covered[0].id, { decision: "rejected", comment: "Kontroller formuleringen" });
+    expect(reviewProgress(data.analysis.findings, optional).unresolved).toBe(0);
+  });
+  it("allows an all-covered analysis without manufacturing human confirmations", () => {
+    const data = input();
+    data.analysis.findings = data.analysis.findings.filter(f => f.classification === "covered");
+    data.reviews = {};
+    expect(proposalRequestSchema.safeParse(data).success).toBe(true);
+    expect(reviewProgress(data.analysis.findings, {})).toEqual({ reviewed: 0, unresolved: 0, total: 0 });
+    expect(() => createDemoProposal(data)).not.toThrow();
+    expect(data.reviews).toEqual({});
+  });
+  it.each(["potentially_missing", "needs_clarification"] as const)("blocks an unreviewed %s finding", classification => {
+    const data = input();
+    const required = data.analysis.findings.find(f => f.classification === classification)!;
+    delete data.reviews[required.id];
+    expect(proposalRequestSchema.safeParse(data).success).toBe(false);
+    expect(getWorkflowStep(data.analysis.documents, null, data.analysis, data.reviews)).toBe(3);
+  });
+
+  it("requires actionable findings to be reviewed and rejects unrelated or duplicate IDs", () => {
     const data = input();
     expect(proposalRequestSchema.safeParse(data).success).toBe(true);
     expect(
@@ -71,12 +104,10 @@ describe("proposal input, source handling and decisions", () => {
   });
   it("recalculates source verification instead of trusting browser flags", () => {
     const data = input();
-    data.analysis.findings[0].agreementQuote =
+    data.analysis.findings[0].sourceQuote =
       "This quotation does not exist in the agreement.";
-    expect(data.analysis.findings[0].evidence.agreement).toBe("verified");
-    expect(proposalContext(data).findings[0].agreementQuoteVerified).toBe(
-      false,
-    );
+    expect(data.analysis.findings[0].evidence.source).toBe("verified");
+    expect(proposalContext(data).findings[0].sourceQuoteVerified).toBe(false);
   });
   it("rejects generated changes attributed to rejected or unknown findings", () => {
     const data = input();
@@ -116,10 +147,10 @@ describe("transparent, review-sensitive demo", () => {
     expect(proposal.text).toContain("senest 1. desember 2026");
     expect(proposal.text).not.toContain("15. desember 2026");
     expect(data.analysis.documents.agreement.text).toBe(original);
-    const check = checkDemoProposal({
-      agreement: data.analysis.documents.agreement,
-      handover: { ...draftDocument(proposal.text), id: "handover" },
-    });
+    const check = checkDemoProposal(
+      data.analysis,
+      draftDocument(proposal.text),
+    );
     expect(check.findings).toHaveLength(7);
     expect(
       check.findings.every(
@@ -137,26 +168,24 @@ describe("transparent, review-sensitive demo", () => {
     };
     const proposal = createDemoProposal(data);
     expect(proposal.changes.some((c) => c.findingId === first.id)).toBe(false);
-    expect(proposal.text).not.toContain(first.agreementQuote);
+    expect(proposal.text).not.toContain(first.sourceQuote);
     expect(proposal.followUps.join(" ")).toContain(
       data.reviews[first.id].comment,
     );
-    const check = checkDemoProposal({
-      agreement: data.analysis.documents.agreement,
-      handover: { ...draftDocument(proposal.text), id: "handover" },
-    });
+    const check = checkDemoProposal(
+      data.analysis,
+      draftDocument(proposal.text),
+    );
     expect(
       check.findings.find((f) => f.category === "integrations")?.classification,
     ).toBe("potentially_missing");
   });
   it("keeps unverified commitments out of automatic demo corrections", () => {
     const data = input();
-    data.analysis.findings[0].agreementQuote =
+    data.analysis.findings[0].sourceQuote =
       "An invented ERP commitment that was never agreed.";
     const proposal = createDemoProposal(data);
-    expect(proposal.text).not.toContain(
-      data.analysis.findings[0].agreementQuote,
-    );
+    expect(proposal.text).not.toContain(data.analysis.findings[0].sourceQuote);
     expect(proposal.followUps.join(" ")).toContain("Avklar");
   });
 });
@@ -164,27 +193,41 @@ describe("approval is tied to the checked version and reviewer decisions", () =>
   it("requires a fresh check and invalidates approval after edits or changed comments", () => {
     const data = input();
     const proposal = createDemoProposal(data);
-    const check = checkDemoProposal({
-      agreement: data.analysis.documents.agreement,
-      handover: { ...draftDocument(proposal.text), id: "handover" },
-    });
+    const check = checkDemoProposal(
+      data.analysis,
+      draftDocument(proposal.text),
+    );
     const signature = reviewSignature(data.analysis, data.reviews);
-    expect(canApproveDraft(proposal.text, signature, signature, null)).toBe(
-      false,
-    );
-    expect(canApproveDraft(proposal.text, signature, signature, check)).toBe(
-      true,
-    );
+    expect(
+      canApproveDraft(proposal.text, signature, signature, null, data.analysis),
+    ).toBe(false);
+    expect(
+      canApproveDraft(
+        proposal.text,
+        signature,
+        signature,
+        check,
+        data.analysis,
+      ),
+    ).toBe(true);
     expect(
       canApproveDraft(
         proposal.text + "\nEndret innhold.",
         signature,
         signature,
         check,
+        data.analysis,
       ),
     ).toBe(false);
     expect(
-      canApproveDraft(proposal.text, signature, signature, check, true),
+      canApproveDraft(
+        proposal.text,
+        signature,
+        signature,
+        check,
+        data.analysis,
+        true,
+      ),
     ).toBe(false);
     const changed = updateReview(data.reviews, data.analysis.findings[0].id, {
       comment: "En ny vurdering.",
@@ -195,6 +238,7 @@ describe("approval is tied to the checked version and reviewer decisions", () =>
         signature,
         reviewSignature(data.analysis, changed),
         check,
+        data.analysis,
       ),
     ).toBe(false);
     expect(() => draftDocument("kort")).toThrow();
@@ -216,8 +260,9 @@ describe("proposal HTTP route and live SDK boundary (mocked)", () => {
       },
       body: JSON.stringify(body),
     });
-  it("passes decisions and comments as data and returns a validated live proposal", async () => {
+  it("passes decisions and comments as data and accepts unreviewed covered findings", async () => {
     const data = input();
+    for (const f of data.analysis.findings.filter(f => f.classification === "covered")) delete data.reviews[f.id];
     data.reviews[data.analysis.findings[0].id].comment =
       "Kontroller hvem som eier integrasjonen.";
     generate.mockResolvedValue({

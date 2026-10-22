@@ -18,12 +18,13 @@ export async function POST(request: Request) {
     );
     if (!parsed.success)
       throw new AppError(
-        "Ugyldige dokumenter. Bruk to dokumenter med 20–20 000 tegn og bekreft at de er syntetiske.",
+        "Ugyldige dokumenter. Avtale og overlevering kreves, maks tre valgfrie kilder, 20–20 000 tegn per fil og 40 000 tegn samlet. Bekreft syntetisk innhold.",
       );
     release = acquireLimit("analysis", 5, 10 * 60_000, 1);
-    const { agreement, handover } = parsed.data;
+    const { syntheticOnly: _syntheticOnly, ...documents } = parsed.data;
+    void _syntheticOnly;
     return Response.json(
-      { result: await analyzeDocuments({ agreement, handover }) },
+      { result: await analyzeDocuments(documents) },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

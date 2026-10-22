@@ -12,8 +12,19 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { FindingCard } from "./finding-card";
+import { TextComparison } from "./text-comparison";
 import {
-  analysisSchema,
+  hasCompleteBaseline,
+  needsFollowUp,
+  reanalysisInput,
+  reanalysisSchema,
+  type ReanalysisResult,
+} from "@/lib/reanalysis";
+import {
+  classificationLabels,
+  documentsSchema,
+  listDocuments,
+  MAX_TOTAL_TEXT_LENGTH,
   MAX_TEXT_LENGTH,
   type AnalysisResult,
   type Reviews,
@@ -27,7 +38,7 @@ import {
 } from "@/lib/proposal";
 import { checkDemoProposal, createDemoProposal } from "@/lib/proposal-demo";
 
-type ProposalActivity = "proposal" | "verification" | null;
+type ProposalActivity = "generation" | "verification" | null;
 export function ProposalPanel({
   analysis,
   reviews,
@@ -46,7 +57,7 @@ export function ProposalPanel({
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [text, setText] = useState("");
   const [sourceSignature, setSourceSignature] = useState("");
-  const [check, setCheck] = useState<AnalysisResult | null>(null);
+  const [check, setCheck] = useState<ReanalysisResult | null>(null);
   const [approved, setApproved] = useState(false);
   const [error, setError] = useState("");
   const inFlight = useRef(false);
@@ -58,10 +69,36 @@ export function ProposalPanel({
   const stale = !!proposal && signature !== sourceSignature;
   const working = activity !== null;
   const validText = draftDocumentSafe(text);
-  const freshCheck = canApproveDraft(text, sourceSignature, signature, check);
+  const draftBudget = Math.min(
+    MAX_TEXT_LENGTH,
+    MAX_TOTAL_TEXT_LENGTH -
+      listDocuments(analysis.documents)
+        .filter((d) => d.id !== "handover")
+        .reduce((sum, d) => sum + d.text.length, 0),
+  );
+  const withinBudget =
+    !!validText &&
+    documentsSchema.safeParse({
+      ...analysis.documents,
+      handover: { ...validText, id: "handover", documentType: "handover" },
+    }).success;
+  const freshCheck = canApproveDraft(
+    text,
+    sourceSignature,
+    signature,
+    check,
+    analysis,
+  );
   const canApprove = freshCheck && allReviewed && !working;
+  const complete = hasCompleteBaseline(analysis, check);
+  const notEvaluated =
+    check?.findings.filter((f) => f.evaluationStatus !== "evaluated").length ??
+    0;
   const remaining =
     check?.findings.filter((f) => f.classification !== "covered").length ?? 0;
+  const transferredFollowUps = check?.findings.filter(f =>
+    f.classification === "covered" && needsFollowUp(f),
+  ).length ?? 0;
   const unverified =
     check?.findings.filter((f) => f.evidence.status === "unverified").length ??
     0;
@@ -91,7 +128,7 @@ export function ProposalPanel({
     )
       return;
     inFlight.current = true;
-    onActivity("proposal");
+    onActivity("generation");
     setError("");
     const input = { analysis, reviews, syntheticOnly: true as const };
     const requestedSignature = signature;
@@ -124,6 +161,7 @@ export function ProposalPanel({
       !proposal ||
       !syntheticConfirmed ||
       !validText ||
+      !withinBudget ||
       stale ||
       !allReviewed ||
       freshCheck
@@ -140,16 +178,17 @@ export function ProposalPanel({
     try {
       const result =
         proposal.mode === "demo"
-          ? checkDemoProposal(documents)
-          : analysisSchema.parse(
+          ? checkDemoProposal(analysis, documents.handover)
+          : reanalysisSchema.parse(
               (
-                await request("/api/analyze", {
-                  ...documents,
-                  syntheticOnly: true,
-                })
+                await request(
+                  "/api/reanalyze",
+                  reanalysisInput(analysis, documents.handover),
+                )
               ).result,
             );
       if (
+        result.baselineId !== analysis.id ||
         result.documents.agreement.text !== analysis.documents.agreement.text ||
         result.documents.handover.text !== validText.text
       )
@@ -203,7 +242,7 @@ export function ProposalPanel({
       <div className="proposal-action">
         <div>
           <strong>
-            {allReviewed ? "Alle funn er vurdert" : "Vurderingene er endret"}
+            {allReviewed ? "Alle nødvendige vurderinger er fullført" : "Vurderingene er endret"}
           </strong>
           <p>
             Bekreftede funn og kommentarer tas med som grunnlag. Avviste funn
@@ -219,12 +258,12 @@ export function ProposalPanel({
             (!!proposal && !stale)
           }
         >
-          {activity === "proposal" ? (
+          {activity === "generation" ? (
             <LoaderCircle className="spin" size={16} />
           ) : (
             <FilePenLine size={16} />
           )}
-          {activity === "proposal" ? "Lager forslag …" : "Oppdater forslag"}
+          {activity === "generation" ? "Lager forslag …" : "Oppdater forslag"}
         </Button>
       </div>
       {error && (
@@ -233,7 +272,7 @@ export function ProposalPanel({
           {error}
         </p>
       )}
-      {activity === "proposal" && (
+      {activity === "generation" && (
         <p role="status" className="proposal-note">
           AI utarbeider et utkast fra dokumentene og vurderingene. Dette kan ta
           opptil 60 sekunder.
@@ -265,7 +304,7 @@ export function ProposalPanel({
           {stale && (
             <p className="proposal-error" role="status">
               Vurderinger eller kommentarer er endret etter at forslaget ble
-              laget. Vurder alle funn og trykk «Oppdater forslag» igjen før ny
+              laget. Vurder potensielt manglende funn og funn som må avklares, og trykk «Oppdater forslag» igjen før ny
               kontroll og godkjenning.
             </p>
           )}
@@ -285,7 +324,10 @@ export function ProposalPanel({
                 rows={16}
               />
               <div className="proposal-editor-footer">
-                <span>{text.length.toLocaleString("nb-NO")} / 20 000 tegn</span>
+                <span>
+                  {text.length.toLocaleString("nb-NO")} /{" "}
+                  {draftBudget.toLocaleString("nb-NO")} tilgjengelige tegn
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -296,10 +338,12 @@ export function ProposalPanel({
                   Tilbakestill utkast
                 </Button>
               </div>
-              {!validText && (
+              {(!validText || !withinBudget) && (
                 <p className="proposal-error" role="status">
-                  Forslaget må inneholde minst 20 og maksimalt 20 000 tegn for å
-                  kunne kontrolleres.
+                  Forslaget må inneholde minst 20 tegn og være innenfor det
+                  samlede tekstbudsjettet. Maksimalt{" "}
+                  {draftBudget.toLocaleString("nb-NO")} tegn er tilgjengelig for
+                  dette notatet.
                 </p>
               )}
             </div>
@@ -345,6 +389,10 @@ export function ProposalPanel({
               </p>
             </aside>
           </div>
+          <TextComparison
+            original={analysis.documents.handover.text}
+            draft={text}
+          />
           <details className="proposal-original">
             <summary>Se opprinnelig overleveringsnotat</summary>
             <pre>{analysis.documents.handover.text}</pre>
@@ -356,6 +404,7 @@ export function ProposalPanel({
                 working ||
                 !syntheticConfirmed ||
                 !validText ||
+                !withinBudget ||
                 stale ||
                 !allReviewed ||
                 freshCheck
@@ -382,14 +431,14 @@ export function ProposalPanel({
             </Button>
           </div>
           <p className="proposal-note">
-            En ny analyse kontrollerer denne tekstversjonen mot samme
-            kundeavtale. Redigering av teksten eller vurderingene gjør
+            En ny kontroll vurderer denne tekstversjonen mot de samme
+            opprinnelige funnene. Redigering av teksten eller vurderingene gjør
             kontrollen ugyldig.
           </p>
           {activity === "verification" && (
             <p role="status" className="proposal-note">
-              Forslaget analyseres. Godkjenning blir tilgjengelig når kontrollen
-              er ferdig.
+              Forslaget analyseres. Godkjenning blir tilgjengelig når alle
+              opprinnelige funn er vurdert.
             </p>
           )}
           {check && (
@@ -404,24 +453,51 @@ export function ProposalPanel({
                   </p>
                 </div>
                 <span className="unresolved">
-                  {remaining} funn som må undersøkes
+                  {remaining} mulige mangler i overleveringen
                 </span>
               </div>
               <p className="proposal-note">
-                {check.findings.length} forpliktelser kontrollert ·{" "}
-                {check.findings.length - remaining} dekket · {unverified} med
+                {analysis.findings.length - notEvaluated} av{" "}
+                {analysis.findings.length} opprinnelige funn vurdert ·{" "}
+                {check.findings.length - remaining} dekket, hvorav {transferredFollowUps} overført med fortsatt oppfølging · {unverified} med
                 uverifiserte sitater.
                 {check.findings.length === 0 &&
                   " Ingen forpliktelser ble identifisert. Dette må kontrolleres manuelt."}
               </p>
+              {!complete && (
+                <p className="proposal-error" role="alert">
+                  {notEvaluated
+                    ? `${notEvaluated} opprinnelige funn er ikke vurdert entydig.`
+                    : "Kontrollen dekker ikke hele det opprinnelige kildegrunnlaget."}{" "}
+                  Godkjenning er sperret. Kjør kontrollen på nytt.
+                </p>
+              )}
               {check.findings.map((finding, i) => (
-                <FindingCard
-                  key={`${check.id}-${finding.id}`}
-                  finding={finding}
-                  index={i}
-                  documents={check.documents}
-                  readOnly
-                />
+                <div key={finding.id} className="baseline-finding">
+                  <p className="proposal-note">
+                    {finding.id} · Opprinnelig:{" "}
+                    {
+                      classificationLabels[
+                        analysis.findings.find((f) => f.id === finding.id)
+                          ?.classification ?? "needs_clarification"
+                      ]
+                    }{" "}
+                    · Ny kontroll:{" "}
+                    {finding.classification === "covered" && needsFollowUp(finding)
+                      ? "Overført – krever oppfølging"
+                      : classificationLabels[finding.classification]}
+                    {finding.evaluationStatus === "not_evaluated" &&
+                      " · Ikke vurdert – godkjenning sperret"}
+                  </p>
+                  <FindingCard
+                    key={`${check.id}-${finding.id}`}
+                    finding={finding}
+                    index={i}
+                    documents={check.documents}
+                    readOnly
+                    transferredFollowUp={finding.classification === "covered" && needsFollowUp(finding)}
+                  />
+                </div>
               ))}
               <div className="proposal-approval">
                 <div>
@@ -431,9 +507,11 @@ export function ProposalPanel({
                       : "Kontroller endringene før du godkjenner"}
                   </strong>
                   <p>
-                    {remaining
-                      ? `Kontrollen viser fortsatt ${remaining} mulige mangler eller avklaringsbehov. Undersøk disse før du tar stilling til notatet.`
-                      : "Ingen ytterligere avvik ble flagget i denne kontrollen. Det er fortsatt du som vurderer innholdet."}{" "}
+                    {!complete
+                      ? "Alle opprinnelige funn må være vurdert før du kan godkjenne notatet."
+                      : remaining
+                        ? `Kontrollen viser fortsatt ${remaining} mulige mangler eller avklaringsbehov. Undersøk disse før du tar stilling til notatet.`
+                        : "Ingen ytterligere mangler i overleveringen ble flagget. Saker merket «Overført – krever oppfølging» er fortsatt åpne og må følges opp av leveringsteamet. Det er fortsatt du som vurderer innholdet."}{" "}
                     Godkjenningen gjelder bare dette interne notatet.
                   </p>
                 </div>

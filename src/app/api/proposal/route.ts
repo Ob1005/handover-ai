@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     );
     if (!parsed.success)
       throw new AppError(
-        "Alle funn må være bekreftet eller avvist, og vurderingene må tilhøre denne analysen.",
+        "Potensielt manglende funn og funn som må avklares må være vurdert. Vurderingene må tilhøre denne analysen.",
       );
     release = acquireLimit("analysis", 5, 10 * 60_000, 1);
     return Response.json(

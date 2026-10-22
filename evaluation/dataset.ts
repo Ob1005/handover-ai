@@ -21,6 +21,7 @@ function pair(
 ): EvaluationCase {
   const doc = (role: "agreement" | "handover", text: string) => ({
     id: role,
+    documentType: role,
     name: `${id}-${role}.txt`,
     type: "txt",
     text,

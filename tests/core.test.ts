@@ -115,7 +115,7 @@ describe("AI schema and evidence", () => {
     expect(findings[0].evidence.handover).toBe("not_provided");
   });
   it.each([
-    { agreementQuote: "This is a fabricated source quotation." },
+    { sourceQuote: "This is a fabricated source quotation." },
     { handoverQuote: "A fabricated handover statement." },
     { certainty: "ambiguous" as const },
     { classification: "covered" as const, handoverQuote: null },
@@ -126,21 +126,21 @@ describe("AI schema and evidence", () => {
     )[0];
     expect(finding.classification).toBe("needs_clarification");
   });
-  it("produces stable finding IDs and rejects duplicate findings", () => {
-    expect(getDemoAnalysis().findings.map((f) => f.id)).toEqual(
-      getDemoAnalysis().findings.map((f) => f.id),
+  it("produces stable finding IDs and consolidates exact duplicate findings", () => {
+    expect(getDemoAnalysis(false).findings.map((f) => f.id)).toEqual(
+      getDemoAnalysis(false).findings.map((f) => f.id),
     );
-    expect(() =>
+    expect(
       validateFindings(
         { findings: [demoResponse.findings[0], demoResponse.findings[0]] },
         demoDocuments,
       ),
-    ).toThrow(/Dupliserte/);
+    ).toHaveLength(1);
   });
 });
 describe("human review and browser session", () => {
   it("waits for every review before opening proposal generation", () => {
-    const result = { ...getDemoAnalysis(), mode: "live" as const };
+    const result = { ...getDemoAnalysis(false), mode: "live" as const };
     expect(getWorkflowStep(demoDocuments, "analysis", null, {})).toBe(2);
     expect(getWorkflowStep(demoDocuments, null, result, {})).toBe(3);
     const reviewed = Object.fromEntries(
@@ -160,7 +160,7 @@ describe("human review and browser session", () => {
         }),
       ),
     ).toBe(3);
-    expect(getWorkflowStep(demoDocuments, "proposal", result, reviewed)).toBe(
+    expect(getWorkflowStep(demoDocuments, "generation", result, reviewed)).toBe(
       4,
     );
     expect(
@@ -168,7 +168,7 @@ describe("human review and browser session", () => {
     ).toBe(4);
   });
   it("advances only as documents, analysis and human decisions become available", () => {
-    const result = getDemoAnalysis();
+    const result = getDemoAnalysis(false);
     expect(getWorkflowStep({}, null, null, {})).toBe(1);
     expect(
       getWorkflowStep({ agreement: demoDocuments.agreement }, null, null, {}),
@@ -194,7 +194,7 @@ describe("human review and browser session", () => {
     expect(getWorkflowStep({}, null, null, reviewed)).toBe(1);
   });
   it("keeps the human decision separate from the AI classification", () => {
-    const result = getDemoAnalysis();
+    const result = getDemoAnalysis(false);
     const reviews = updateReview({}, result.findings[0].id, {
       decision: "confirmed",
       comment: "Avklares med salg",
@@ -204,8 +204,8 @@ describe("human review and browser session", () => {
     });
     expect(reviewProgress(result.findings, changed)).toEqual({
       reviewed: 2,
-      unresolved: 5,
-      total: 7,
+      unresolved: 1,
+      total: 3,
     });
     expect(result.findings[0].classification).toBe("potentially_missing");
     expect(parseSession(serializeSession(result, changed))?.reviews).toEqual(
@@ -218,10 +218,10 @@ describe("human review and browser session", () => {
           decision: "unreviewed",
         }),
       ).unresolved,
-    ).toBe(6);
+    ).toBe(2);
   });
   it("comments do not count as reviewed and malformed sessions are ignored", () => {
-    const result = getDemoAnalysis();
+    const result = getDemoAnalysis(false);
     expect(
       reviewProgress(
         result.findings,
@@ -249,7 +249,7 @@ describe("evaluation bookkeeping (mocked, not AI quality results)", () => {
     expect(scoreCase(c, []).missedOmissions).toBe(1);
     const finding = {
       ...demoResponse.findings[0],
-      agreementQuote: c.expected[0].anchor,
+      sourceQuote: c.expected[0].anchor,
       title: "ERP-integrasjon",
       category: "integrations" as const,
     };
