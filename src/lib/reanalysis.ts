@@ -37,6 +37,11 @@ export const reanalysisRequestSchema = z
     "Maksimalt 40 000 tegn samlet, også med det oppdaterte notatet.",
   );
 // The model evaluates existing IDs; it cannot redefine the commitments or sources.
+const coverageBasisSchema = z.enum([
+  "agreement_requirement",
+  "documented_follow_up",
+  "insufficient",
+]);
 export const reanalysisResponseSchema = z
   .object({
     findings: z
@@ -45,7 +50,7 @@ export const reanalysisResponseSchema = z
           .object({
             findingId: z.string().min(1).max(100),
             classification: aiFindingSchema.shape.classification,
-            followUpDocumented: z.boolean().optional(),
+            coverageBasis: coverageBasisSchema,
             explanation: aiFindingSchema.shape.explanation,
             handoverQuote: aiFindingSchema.shape.handoverQuote,
           })
@@ -60,6 +65,7 @@ export const reanalysisSchema = analysisSchema.extend({
     .array(
       findingSchema.extend({
         evaluationStatus: z.enum(["evaluated", "not_evaluated"]),
+        coverageBasis: coverageBasisSchema,
       }),
     )
     .max(40),
@@ -74,6 +80,13 @@ export function needsFollowUp(
 ) {
   return finding.requiresConfirmation ||
     finding.informationType === "conflict" || finding.certainty === "ambiguous";
+}
+
+export function isTransferredFollowUp(
+  finding: Pick<ReanalysisResult["findings"][number], "classification" | "coverageBasis">,
+) {
+  return finding.classification === "covered" &&
+    finding.coverageBasis === "documented_follow_up";
 }
 
 export function createReanalysis(
@@ -117,16 +130,24 @@ export function createReanalysis(
       },
       documents,
     );
-    // Coverage is separate from whether the underlying business issue is resolved.
-    // The model must explicitly assess the open issue as documented, with verified
-    // evidence; an ordinary "covered" claim cannot bypass the authority safeguard.
-    const transferredFollowUp = evaluated &&
-      needsFollowUp(original) && assessment?.classification === "covered" &&
-      assessment.followUpDocumented && validated.evidence.status === "verified" &&
-      validated.evidence.handover === "verified";
+    // Reassess coverage without changing the original authority metadata. An
+    // initial confirmation flag alone must not permanently block an explicit
+    // agreement requirement. Supporting sources and conflicts cannot use this path.
+    const verifiedCoverage = evaluated && assessment?.classification === "covered" &&
+      validated.evidence.status === "verified" && validated.evidence.handover === "verified";
+    const agreementCovered = verifiedCoverage &&
+      assessment?.coverageBasis === "agreement_requirement" &&
+      original.sourceDocumentId === "agreement" && original.certainty === "explicit" &&
+      original.informationType !== "conflict";
+    const transferredFollowUp = verifiedCoverage && needsFollowUp(original) &&
+      assessment?.coverageBasis === "documented_follow_up";
+    const covered = agreementCovered || transferredFollowUp;
     return {
       ...validated,
-      classification: transferredFollowUp ? "covered" : validated.classification,
+      classification: covered ? "covered" : assessment?.classification === "covered"
+        ? "needs_clarification" : validated.classification,
+      coverageBasis: agreementCovered ? "agreement_requirement"
+        : transferredFollowUp ? "documented_follow_up" : "insufficient",
       id: original.id,
       evaluationStatus: evaluated ? "evaluated" : "not_evaluated",
     };

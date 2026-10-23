@@ -105,7 +105,8 @@ export function checkDemoProposal(
       (agreementPresent || (f.classification === "covered" && originalPresent)));
     return {
       findingId: f.id,
-      followUpDocumented,
+      coverageBasis: followUpDocumented ? "documented_follow_up" as const
+        : covered ? "agreement_requirement" as const : "insufficient" as const,
       classification: covered
         ? ("covered" as const)
         : conflictingDate

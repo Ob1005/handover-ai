@@ -2,17 +2,18 @@
 
 ## Gjeldende versjon
 
-Kontrollert etter rettingen av filbytte og forenklingen av øktbehandling:
+Kontrollert etter rettingen av filbytte, forenklingen av øktbehandling og skillet mellom avtalekrav og oppfølging i sluttkontrollen:
 
 | Kontroll | Resultat |
 | --- | --- |
-| Automatiske tester | 125 av 125 besto i ni testfiler |
+| Automatiske tester | 135 av 135 besto i ni testfiler |
 | Lint og TypeScript | Besto, TypeScript ble kjørt separat etter bygg |
-| Produksjonsbygg | Webpack-bygg besto og ble startet lokalt |
+| Produksjonsbygg | Webpack-bygg besto |
+| Installasjon og utviklingsserver | Låst pakkeinstallasjon og Turbopack-oppstart besto i en ren kopi uten API-nøkkel; startsiden svarte med HTTP 200 |
 | Hemmeligheter og diff | Hemmelighetssjekk og `git diff --check` besto |
-| Visuell kontroll | Desktop 1280 × 900 og mobil 390 × 844 kontrollert i nettleseren; ingen horisontal overflyt på mobil |
+| Tidligere visuell kontroll | Desktop 1280 × 900 og mobil 390 × 844 kontrollert i nettleseren før siste logikkretting; ingen horisontal overflyt på mobil |
 
-Hele demoen ble gjennomført i grensesnittet uten API-kall: åtte funn, fem nødvendige vurderinger, oppdatert forslag, tekstsammenligning, ny kontroll og manuell godkjenning. Ny kontroll beholdt alle åtte funn. Alle var dekket, med to åpne oppfølgingspunkter. Redigering fjernet godkjenningen og oppdaterte tekstsammenligningen. «Lukk demo» nullstilte kontrollen.
+Hele demoen ble tidligere gjennomført i grensesnittet uten API-kall: åtte funn, fem nødvendige vurderinger, oppdatert forslag, tekstsammenligning, ny kontroll og manuell godkjenning. Ny kontroll beholdt alle åtte funn. Alle var dekket, med to åpne oppfølgingspunkter. Redigering fjernet godkjenningen og oppdaterte tekstsammenligningen. «Lukk demo» nullstilte kontrollen.
 
 Et avvist filbytte beholdt alle vurderinger, det manuelt redigerte utkastet og godkjenningen. Et vellykket filbytte nullstilte analysen og utkastet. En sideoppdatering startet med tom kontroll. Arbeidsøkten bruker bare nettleserminnet.
 
@@ -21,6 +22,8 @@ På mobil ble de to syntetiske TXT-filene tidligere lastet opp gjennom filvelger
 Duplikatkontrollen er testet med samme tekst i ulike dokumentfelt, omdøpte filer, PDF/TXT og forskjeller i Unicode eller mellomrom. I nettleseren ga samme kunde-e-post i begge obligatoriske felt et varsel og sperret analyse. Varselet forsvant etter filbytte. Tomme analyser kan verken åpne forslag i grensesnittet eller sendes til forslagsruten; serverkontrollene ble testet uten Gemini-kall.
 
 Automatiske tester bruker mockede Gemini-svar. De kontrollerer blant annet fil- og responsvalidering, kildesitater, beslutningsregler, forslag, fast grunnlag ved ny kontroll og tekstsammenligning. De måler ikke modellens treffsikkerhet. **Ingen nye live-kall til Gemini ble gjort i denne revisjonen.**
+
+Regresjonstester dekker ERP- og CSV-krav som feilaktig ble flagget for bekreftelse i første analyse. De kan nå bli dekket når sluttkontrollen eksplisitt vurderer avtalekravet som overført med verifiserte sitater. Egne negative tilfeller kontrollerer at støttekilder, konflikter, tvetydighet og ugyldige sitater ikke kan bruke denne veien. Rettingen er kontrollert med mockede modellvurderinger, ikke en ny live-evaluering.
 
 ## Historisk modelevaluering
 

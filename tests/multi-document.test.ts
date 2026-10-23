@@ -380,7 +380,7 @@ describe("multi-source proposal, fixed baseline and demo", () => {
       expect(rechecked.findings.find(item => item.id === f.id)?.classification).not.toBe("covered");
     }
   });
-  it.each(["documented", "absent", "unverified", "not_explicitly_documented"] as const)("validates live follow-up coverage: %s", scenario => {
+  it.each(["documented", "absent", "unverified", "not_explicitly_documented", "claimed_agreement"] as const)("validates live follow-up coverage: %s", scenario => {
     const { analysis } = reviewed();
     const followUp = analysis.findings.find(f => f.sourceDocumentId === "correspondence")!;
     const draft = draftDocument("Åpen oppfølging: " + followUp.sourceQuote + " Dette er et ønske som må avklares, ikke en godkjent leveranse.");
@@ -388,7 +388,8 @@ describe("multi-source proposal, fixed baseline and demo", () => {
       findings: [{
         findingId: followUp.id,
         classification: "covered",
-        followUpDocumented: scenario !== "not_explicitly_documented",
+        coverageBasis: scenario === "not_explicitly_documented" ? "insufficient"
+          : scenario === "claimed_agreement" ? "agreement_requirement" : "documented_follow_up",
         handoverQuote: scenario === "absent" ? null : scenario === "unverified" ? "Et oppdiktet sitat om oppstartsmøtet." : draft.text,
         explanation: "Vurdering av om kundens ønske er overført som åpen oppfølging.",
       }],
@@ -499,6 +500,7 @@ describe("multi-source proposal, fixed baseline and demo", () => {
           .map((f) => ({
             findingId: f.id,
             classification: f.classification,
+            coverageBasis: f.classification === "covered" ? "agreement_requirement" as const : "insufficient" as const,
             explanation: "En vurdering av det samme opprinnelige funnet.",
             handoverQuote: f.handoverQuote,
           })),
@@ -541,6 +543,7 @@ describe("multi-source proposal, fixed baseline and demo", () => {
         findings: analysis.findings.map((f) => ({
           findingId: f.id,
           classification: "covered",
+          coverageBasis: "agreement_requirement",
           explanation: "Modellen hevder at dette er dekket i notatet.",
           handoverQuote: analysis.documents.handover.text.slice(0, 45),
         })),

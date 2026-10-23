@@ -4,6 +4,8 @@ Handover AI sammenligner en kundeavtale og andre salgskilder med et internt over
 
 En norsk porteføljeprototype utviklet med AI-assistanse. **Bruk bare syntetiske, ikke-konfidensielle dokumenter.** Demoen krever ingen API-nøkkel.
 
+**Vil du prøve prototypen?** Den kjøres på din egen maskin. Følg [oppstartsveiledningen](#kjør-lokalt) først, og velg deretter **Prøv demo** i appen. Skjermbildene nedenfor viser arbeidsflyten uten at du trenger å installere noe.
+
 ## Problemet
 
 Når en programvareleveranse går fra salg til prosjektleder, kan en integrasjon bli utelatt, en dato feil gjengitt eller et kundeønske fremstå som avtalt. Informasjonen kan ligge spredt i avtaler, tilbud og e-poster. Handover AI gir et kontrollpunkt før prosjektstart. Om dette reduserer tidsbruk og omarbeid, er foreløpig ikke målt.
@@ -49,27 +51,70 @@ Gemini tolker innholdet. Applikasjonskode kontrollerer struktur, kildesitater og
 
 ## Kjør lokalt
 
-Du trenger Node.js 22.13 eller nyere og pnpm 11.25.
+### 1. Installer Node.js og pnpm én gang
+
+Installer **Node.js 24 LTS** fra [nodejs.org](https://nodejs.org/en/download). Velg installasjonsprogrammet for operativsystemet ditt. Det installerer både Node.js og npm. Prosjektet krever minst Node.js 22.13.
+
+Lukk og åpne VS Code eller terminalprogrammet på nytt etter installasjonen. Åpne en terminal og kontroller at verktøyene finnes:
+
+```sh
+node --version
+npm --version
+```
+
+Begge skal vise et versjonsnummer. Installer deretter prosjektets versjon av pnpm:
+
+```sh
+npm install --global pnpm@11.25.0
+pnpm --version
+```
+
+Den siste kommandoen skal vise `11.25.0`. Se [pnpm sin installasjonsguide](https://pnpm.io/installation) hvis installasjonen feiler.
+
+### 2. Last ned og åpne prosjektet
+
+På GitHub: velg **Code → Download ZIP**, pakk ut filen og åpne prosjektmappen i VS Code med **File → Open Folder**. Velg mappen som inneholder `package.json`, ikke mappen over den. Har du allerede lastet ned eller klonet prosjektet, bruker du den eksisterende mappen.
+
+Velg **Terminal → New Terminal** i VS Code. Kommandoene nedenfor skal kjøres i prosjektmappen. Du kan også bruke en vanlig terminal hvis du først går til samme mappe.
+
+### 3. Installer pakkene og start appen
+
+Kjør én kommando om gangen. Vent til installasjonen er ferdig før du starter appen:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Åpne [127.0.0.1:3000](http://127.0.0.1:3000) og velg **Prøv demo**.
+Den første kommandoen installerer prosjektets avhengigheter med versjonene i låsefilen. Den andre starter den lokale serveren.
 
-For live-analyse: opprett en nøkkel i [Google AI Studio](https://aistudio.google.com/apikey), kopier `.env.example` til `.env.local` hvis filen ikke finnes, og fyll inn:
+Når terminalen viser **Ready**, finner du nettadressen på linjen **Local**, normalt [http://127.0.0.1:3000](http://127.0.0.1:3000). Åpne adressen i nettleseren. I VS Code kan du holde **Command** på Mac eller **Ctrl** på Windows/Linux inne og klikke på den. Bruk adressen terminalen faktisk viser hvis porten er en annen.
+
+**Lokaladressen virker først etter at serveren er startet på din maskin.** Nettleseren åpnes ikke automatisk. La terminalen stå åpen mens du bruker appen; at den blir stående uten ny tekst, er normalt. Stopp serveren med **Ctrl+C**.
+
+Velg **Prøv demo** for å gå gjennom hele arbeidsflyten uten API-nøkkel. Neste gang trenger du bare å åpne prosjektmappen og kjøre `pnpm dev`.
+
+**Hvis oppstarten stopper:**
+
+- `command not found: node`, `npm` eller `pnpm`: Verktøyet er ikke installert eller tilgjengelig i terminalen. Fullfør steg 1 og åpne en ny terminal.
+- `Another next dev server is already running`: Stopp den tidligere serveren med **Ctrl+C** i terminalen der den kjører, og start på nytt. Å lukke nettleserfanen stopper ikke serveren.
+
+### Live-analyse med Gemini
+
+For å analysere opplastede dokumenter med AI trenger du en nøkkel fra [Google AI Studio](https://aistudio.google.com/apikey). Kopier `.env.example` til `.env.local` i prosjektmappen hvis filen ikke finnes, og fyll inn:
 
 ```dotenv
 GEMINI_API_KEY=din_lokale_nokkel
 GEMINI_MODEL=gemini-3.8-flash
 ```
 
-Start serveren på nytt etter endringen. Velg en modell du har tilgang til; tidligere live-tester brukte eksplisitt `gemini-3.5-flash-lite`. Appen bytter ikke modell automatisk og erstatter ikke feil med demodata. Tilgang og kvoter avhenger av Google-prosjektet ditt. Appen aktiverer ikke fakturering.
+Start serveren på nytt etter endringen: **Ctrl+C**, deretter `pnpm dev`. Last opp syntetiske dokumenter i appen, bekreft at de ikke inneholder konfidensielt innhold, og velg **Analyser med AI**. Eksempelfiler ligger i [`public/examples`](public/examples).
 
-`.env.local` skal forbli lokal og er ignorert av Git. Bruk aldri `NEXT_PUBLIC_` på nøkkelen. Ved live-analyse og forslagsgenerering sendes dokumentteksten til Google Gemini. Se [sikkerhetsrutinen](SECURITY.md).
+Velg en modell du har tilgang til; tidligere live-tester brukte eksplisitt `gemini-3.5-flash-lite`. Appen bytter ikke modell automatisk og erstatter ikke feil med demodata. Tilgang og kvoter avhenger av Google-prosjektet ditt. Appen aktiverer ikke fakturering.
 
-For å kjøre produksjonsbygget lokalt:
+`.env.local` skal forbli lokal og er ignorert av Git. Bruk aldri `NEXT_PUBLIC_` på nøkkelen. Ved live-analyse, forslagsgenerering og ny kontroll sendes dokumentteksten til Google Gemini. Se [sikkerhetsrutinen](SECURITY.md).
+
+For å kjøre produksjonsbygget lokalt, stopp utviklingsserveren og kjør:
 
 ```sh
 pnpm build

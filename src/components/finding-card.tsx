@@ -45,6 +45,7 @@ export function FindingCard({
   onReview = () => {},
   readOnly = false,
   transferredFollowUp = false,
+  coveredAgreement = false,
 }: {
   finding: Finding;
   index: number;
@@ -53,6 +54,7 @@ export function FindingCard({
   onReview?: (change: Partial<Review>) => void;
   readOnly?: boolean;
   transferredFollowUp?: boolean;
+  coveredAgreement?: boolean;
 }) {
   return (
     <details
@@ -86,13 +88,17 @@ export function FindingCard({
       </summary>
       <div className="finding-body">
         <p className="information-authority">
-          <strong>{informationLabels[finding.informationType]}</strong>
+          <strong>{coveredAgreement ? "Avtalekrav overført" : informationLabels[finding.informationType]}</strong>
           {finding.sourceDocumentId !== "agreement" &&
             " · Ikke et bekreftet avtalevilkår"}
-          {finding.requiresConfirmation && " · Krever bekreftelse"}
+          {finding.requiresConfirmation && (coveredAgreement
+            ? " · Opprinnelig flagget for bekreftelse" : " · Krever bekreftelse")}
           {transferredFollowUp && " · Dokumentert i notatet, fortsatt åpen sak"}
         </p>
-        <p className="finding-description">{finding.description}</p>
+        <p className="finding-description">
+          {readOnly && <strong>Opprinnelig funn: </strong>}
+          {finding.description}
+        </p>
         {finding.modelClassification !== finding.classification && (
           <p className="validation-warning">
             Klassifiseringen er justert etter kildekontrollen.

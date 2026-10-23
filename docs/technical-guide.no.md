@@ -67,6 +67,8 @@ Koden bygger resultatet fra originalfunnene. Manglende eller dupliserte svar bli
 
 En åpen sak kan være korrekt overført uten å være løst. For «Overført med oppfølging» må Gemini eksplisitt vurdere saken som dokumentert, og både kilder og sitat fra det nye notatet må være verifisert. Kildeautoritet og bekreftelsesbehov beholdes. Dette skiller mangler i notatet fra saker leveringsteamet fortsatt må følge opp.
 
+Sluttkontrollen skiller mellom overførte avtalekrav, dokumentert oppfølging og utilstrekkelig dekning. Et eksplisitt krav fra avtalen kan bli «Dekket» selv om første analyse flagget det for bekreftelse. Dette krever en ny semantisk vurdering og verifiserte kilde- og notatsitater. Støttekilder, tvetydige krav og kildekonflikter kan ikke bruke denne veien. Opprinnelige beskrivelser og flagg beholdes som historikk; de avgjør ikke alene om kravet er overført.
+
 Brukeren godkjenner notatet manuelt og kan gjøre det med synlige, vurderte avklaringspunkter. En endring i tekst eller beslutningsgrunnlag gjør tidligere kontroll og godkjenning ugyldig. Fast grunnlag beskytter bare funn som ble identifisert i første analyse; det sikrer ikke at alle nye, udokumenterte tillegg i utkastet oppdages.
 
 ## Grenser og sikkerhet

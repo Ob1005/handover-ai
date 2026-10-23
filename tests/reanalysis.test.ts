@@ -12,6 +12,7 @@ import {
 import {
   createReanalysis,
   hasCompleteBaseline,
+  isTransferredFollowUp,
   reanalysisInput,
   reanalysisResponseSchema,
 } from "../src/lib/reanalysis";
@@ -44,6 +45,7 @@ function fixture() {
     findings: baseline.findings.map((f) => ({
       findingId: f.id,
       classification: "covered" as const,
+      coverageBasis: "agreement_requirement" as const,
       explanation: "Den opprinnelige forpliktelsen er dekket i utkastet.",
       handoverQuote: draft.text.includes(f.sourceQuote)
         ? f.sourceQuote
@@ -54,6 +56,49 @@ function fixture() {
 }
 
 describe("fixed commitment baseline", () => {
+  it.each([0, 2])("covers an explicit agreement requirement despite an initial confirmation flag: finding %i", index => {
+    const { baseline, draft, response } = fixture();
+    // Reproduce the live ERP/CSV results: the first model response marked an
+    // explicit agreement requirement for confirmation, downgrading its authority.
+    Object.assign(baseline.findings[index], {
+      informationType: "follow_up",
+      requiresConfirmation: true,
+      classification: "needs_clarification",
+    });
+    const before = structuredClone(baseline);
+    const check = createReanalysis(reanalysisInput(baseline, draft), response, "live", "mock only");
+    expect(check.findings[index]).toMatchObject({
+      classification: "covered",
+      coverageBasis: "agreement_requirement",
+      informationType: "follow_up",
+      requiresConfirmation: true,
+      evidence: { source: "verified", handover: "verified" },
+    });
+    expect(isTransferredFollowUp(check.findings[index])).toBe(false);
+    expect(hasCompleteBaseline(baseline, check)).toBe(true);
+    expect(baseline).toEqual(before);
+  });
+  it.each(["conflict", "ambiguous", "invalid_source", "invalid_related_source", "invalid_handover", "missing_handover", "insufficient"] as const)("does not accept agreement coverage with %s", scenario => {
+    const { baseline, draft, response } = fixture();
+    const original = baseline.findings[0];
+    Object.assign(original, { informationType: "follow_up", requiresConfirmation: true });
+    if (scenario === "conflict") original.informationType = "conflict";
+    if (scenario === "ambiguous") original.certainty = "ambiguous";
+    if (scenario === "invalid_source") original.sourceQuote = "Et oppdiktet avtalekrav om ERP-integrasjon.";
+    if (scenario === "invalid_related_source") original.relatedSources = [{ documentId: "agreement", quote: "Et oppdiktet tilleggssitat fra kundeavtalen." }];
+    if (scenario === "invalid_handover") response.findings[0].handoverQuote = "Et oppdiktet sitat fra det oppdaterte notatet.";
+    if (scenario === "missing_handover") response.findings[0].handoverQuote = null;
+    const check = createReanalysis(reanalysisInput(baseline, draft), {
+      findings: response.findings.map((f, i) => i === 0 && scenario === "insufficient"
+        ? { ...f, coverageBasis: "insufficient" as const } : f),
+    }, "live", "mock only");
+    expect(check.findings[0]).toMatchObject({
+      classification: "needs_clarification",
+      coverageBasis: "insufficient",
+      requiresConfirmation: true,
+    });
+    expect(isTransferredFollowUp(check.findings[0])).toBe(false);
+  });
   it("preserves original IDs, metadata, sources and order even when Gemini returns reversed results", () => {
     const { baseline, input, response } = fixture();
     const previous = structuredClone(baseline);

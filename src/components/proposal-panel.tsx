@@ -15,7 +15,7 @@ import { FindingCard } from "./finding-card";
 import { TextComparison } from "./text-comparison";
 import {
   hasCompleteBaseline,
-  needsFollowUp,
+  isTransferredFollowUp,
   reanalysisInput,
   reanalysisSchema,
   type ReanalysisResult,
@@ -98,9 +98,7 @@ export function ProposalPanel({
     0;
   const remaining =
     check?.findings.filter((f) => f.classification !== "covered").length ?? 0;
-  const transferredFollowUps = check?.findings.filter(f =>
-    f.classification === "covered" && needsFollowUp(f),
-  ).length ?? 0;
+  const transferredFollowUps = check?.findings.filter(isTransferredFollowUp).length ?? 0;
   const unverified =
     check?.findings.filter((f) => f.evidence.status === "unverified").length ??
     0;
@@ -480,7 +478,7 @@ export function ProposalPanel({
                       ]
                     }{" "}
                     · Nå:{" "}
-                    {finding.classification === "covered" && needsFollowUp(finding)
+                    {isTransferredFollowUp(finding)
                       ? "Overført med oppfølging"
                       : classificationLabels[finding.classification]}
                     {finding.evaluationStatus === "not_evaluated" &&
@@ -492,7 +490,8 @@ export function ProposalPanel({
                     index={i}
                     documents={check.documents}
                     readOnly
-                    transferredFollowUp={finding.classification === "covered" && needsFollowUp(finding)}
+                    transferredFollowUp={isTransferredFollowUp(finding)}
+                    coveredAgreement={finding.classification === "covered" && finding.coverageBasis === "agreement_requirement"}
                   />
                 </div>
               ))}
