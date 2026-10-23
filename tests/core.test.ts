@@ -18,9 +18,7 @@ import { demoDocuments, demoResponse, getDemoAnalysis } from "../src/lib/demo";
 import {
   canGenerateProposal,
   getWorkflowStep,
-  parseSession,
   reviewProgress,
-  serializeSession,
   updateReview,
 } from "../src/lib/review";
 import { dataset } from "../evaluation/dataset";
@@ -139,7 +137,7 @@ describe("AI schema and evidence", () => {
     ).toHaveLength(1);
   });
 });
-describe("human review and browser session", () => {
+describe("human review and workflow", () => {
   it("keeps an empty analysis at review instead of marking the workflow complete", () => {
     const result = { ...getDemoAnalysis(false), findings: [] };
     expect(reviewProgress(result.findings, {})).toEqual({ reviewed: 0, unresolved: 0, total: 0 });
@@ -216,9 +214,6 @@ describe("human review and browser session", () => {
       total: 3,
     });
     expect(result.findings[0].classification).toBe("potentially_missing");
-    expect(parseSession(serializeSession(result, changed))?.reviews).toEqual(
-      changed,
-    );
     expect(
       reviewProgress(
         result.findings,
@@ -228,7 +223,7 @@ describe("human review and browser session", () => {
       ).unresolved,
     ).toBe(2);
   });
-  it("comments do not count as reviewed and malformed sessions are ignored", () => {
+  it("does not count comments as reviewed and rejects overlong comments", () => {
     const result = getDemoAnalysis(false);
     expect(
       reviewProgress(
@@ -236,8 +231,6 @@ describe("human review and browser session", () => {
         updateReview({}, result.findings[0].id, { comment: "Notat" }),
       ).reviewed,
     ).toBe(0);
-    for (const value of [null, "bad json", "{}", '{"result":null}'])
-      expect(parseSession(value)).toBeNull();
     expect(() =>
       updateReview({}, "F-1", { comment: "a".repeat(1001) }),
     ).toThrow();

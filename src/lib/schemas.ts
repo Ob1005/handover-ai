@@ -168,10 +168,6 @@ export const reviewSchema = z
   })
   .strict();
 export const reviewsSchema = z.record(z.string(), reviewSchema);
-export const sessionSchema = z.object({
-  result: analysisSchema,
-  reviews: reviewsSchema,
-});
 export type UploadedDocument = z.infer<typeof documentSchema>;
 export type Documents = z.infer<typeof documentsSchema>;
 export type AiFinding = z.infer<typeof aiFindingSchema>;

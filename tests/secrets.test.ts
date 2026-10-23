@@ -21,7 +21,7 @@ describe("portfolio secret checks", () => {
       expect(sensitivePath(path)).toBe(true);
     for (const path of [
       ".env.example",
-      "docs/start-preview.png",
+      "docs/screenshots/start.jpg",
       "public/examples/Fjordlogistikk_Kundeavtale.txt",
     ])
       expect(sensitivePath(path)).toBe(false);

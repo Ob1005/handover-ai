@@ -2,7 +2,7 @@
 
 ## Gjeldende versjon
 
-Kontrollert etter oppdateringen av grensesnitt, språk og demodokumenter:
+Kontrollert etter rettingen av filbytte og forenklingen av øktbehandling:
 
 | Kontroll | Resultat |
 | --- | --- |
@@ -14,7 +14,9 @@ Kontrollert etter oppdateringen av grensesnitt, språk og demodokumenter:
 
 Hele demoen ble gjennomført i grensesnittet uten API-kall: åtte funn, fem nødvendige vurderinger, oppdatert forslag, tekstsammenligning, ny kontroll og manuell godkjenning. Ny kontroll beholdt alle åtte funn. Alle var dekket, med to åpne oppfølgingspunkter. Redigering fjernet godkjenningen og oppdaterte tekstsammenligningen. «Lukk demo» nullstilte kontrollen.
 
-På mobil ble de to syntetiske TXT-filene lastet opp gjennom filvelgeren. Progresjonen gikk til steg 02, og analyseknappen ble tilgjengelig. [Skjermbildene](../README.md#skjermbilder) er tatt fra det nye produksjonsbygget.
+Et avvist filbytte beholdt alle vurderinger, det manuelt redigerte utkastet og godkjenningen. Et vellykket filbytte nullstilte analysen og utkastet. En sideoppdatering startet med tom kontroll. Arbeidsøkten bruker bare nettleserminnet.
+
+På mobil ble de to syntetiske TXT-filene tidligere lastet opp gjennom filvelgeren. Progresjonen gikk til steg 02, og analyseknappen ble tilgjengelig. [Skjermbildene](../README.md#skjermbilder) viser syntetiske dokumenter; funnvisningen er oppdatert etter forenklingen av øktbehandling.
 
 Duplikatkontrollen er testet med samme tekst i ulike dokumentfelt, omdøpte filer, PDF/TXT og forskjeller i Unicode eller mellomrom. I nettleseren ga samme kunde-e-post i begge obligatoriske felt et varsel og sperret analyse. Varselet forsvant etter filbytte. Tomme analyser kan verken åpne forslag i grensesnittet eller sendes til forslagsruten; serverkontrollene ble testet uten Gemini-kall.
 
@@ -38,10 +40,8 @@ Grunnlaget er lite og gjelder en eldre arbeidsflyt. Uavhengig validering er ikke
 
 ## Observerte svakheter
 
-Tidligere live-tester viste at første analyse kan utelate en opplysning fra korrespondansen eller finne ulike sett med krav ved gjentatte kjøringer. Et forslagskall traff tidsgrensen på 60 sekunder. Det ble også observert et omskrevet kildesitat, som den deterministiske kontrollen merket uverifisert. Ingen av disse feilene skal skjules av demodata eller automatisk modellbytte.
+Syntetiske live-kontroller av flerdokumentflyten fullførte analyse og ny kontroll med `gemini-3.5-flash-lite`. I et kort eksempel ble tre av tre opprinnelige funn beholdt. Dette var funksjonstester, ikke en ny presisjonsmåling. Et forslagskall med de tre Fjordlogistikk-dokumentene traff tidsgrensen på 60 sekunder, så hele denne live-forslagsflyten ble ikke bekreftet.
+
+Første analyse kan utelate en opplysning fra korrespondansen eller finne ulike sett med krav ved gjentatte kjøringer. Det ble også observert et omskrevet kildesitat, som den deterministiske kontrollen merket uverifisert. Ingen av disse feilene skal skjules av demodata eller automatisk modellbytte.
 
 Fast kontrollgrunnlag hindrer at kjente funn forsvinner fra neste analyse. Det fanger ikke opp krav som allerede ble oversett første gang. Verifiserte sitater og gjennomførte tester er heller ingen garanti for at tolkningen er riktig.
-
-## Historikk
-
-[Arkivert verifiseringslogg](archive/verification-2026-10.md) inneholder de tidligere kontrollene, observerte feilene og utviklingen av flerdokumentflyten. Beskrivelser og testtall i arkivet gjelder versjonen som ble kontrollert den gangen.

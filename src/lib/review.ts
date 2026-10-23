@@ -1,7 +1,6 @@
 import { duplicateDocumentMessage } from "./document-validation";
 import {
   reviewsSchema,
-  sessionSchema,
   type AnalysisResult,
   type Finding,
   type Review,
@@ -9,7 +8,6 @@ import {
   type UploadedDocument,
   type DocumentId,
 } from "./schemas";
-export const SESSION_KEY = "handover-ai-session-v1";
 export type WorkflowActivity =
   DocumentId | "analysis" | "verification" | "generation" | null;
 export function getWorkflowStep(
@@ -63,15 +61,4 @@ export function canGenerateProposal(
     analysis.findings.length > 0 &&
     reviewProgress(analysis.findings, reviews).unresolved === 0
   );
-}
-export function parseSession(value: string | null) {
-  if (!value) return null;
-  try {
-    return sessionSchema.parse(JSON.parse(value));
-  } catch {
-    return null;
-  }
-}
-export function serializeSession(result: AnalysisResult, reviews: Reviews) {
-  return JSON.stringify(sessionSchema.parse({ result, reviews }));
 }

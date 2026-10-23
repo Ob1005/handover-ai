@@ -46,8 +46,6 @@ import {
   canGenerateProposal,
   reviewProgress,
   requiresReview,
-  serializeSession,
-  SESSION_KEY,
   updateReview,
   type WorkflowActivity,
 } from "@/lib/review";
@@ -63,38 +61,11 @@ export function HandoverApp({ model }: { model: string }) {
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState<WorkflowActivity>(null);
   const [error, setError] = useState("");
-  const [storageWarning, setStorageWarning] = useState("");
-  const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState<Classification | "all">("all");
   const [onlyUnreviewed, setOnlyUnreviewed] = useState(false);
   const [documentView, setDocumentView] = useState<DocumentId | null>(null);
   const lock = useRef(false);
   const resultsRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    try {
-      // A new page visit always starts a fresh control. Never restore an old
-      // analysis into the upload flow, even when this tab has saved results.
-      sessionStorage.removeItem(SESSION_KEY);
-    } catch {
-      /* eslint-disable react-hooks/set-state-in-effect */
-      setStorageWarning(
-        "Nettleseren tillater ikke øktlagring. Vurderinger beholdes bare mens siden er åpen.",
-      );
-    }
-    setReady(true);
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
-  useEffect(() => {
-    if (!ready) return;
-    try {
-      if (result)
-        sessionStorage.setItem(SESSION_KEY, serializeSession(result, reviews));
-      else sessionStorage.removeItem(SESSION_KEY);
-    } catch {
-      /* State remains available in memory if session storage is disabled. */
-    }
-  }, [result, reviews, ready]);
 
   async function upload(file: File, id: DocumentId) {
     if (lock.current) return;
@@ -113,8 +84,6 @@ export function HandoverApp({ model }: { model: string }) {
     }
     lock.current = true;
     setBusy(id);
-    setResult(null);
-    setReviews({});
     try {
       const form = new FormData();
       form.set("file", file);
@@ -134,6 +103,7 @@ export function HandoverApp({ model }: { model: string }) {
       setResult(null);
       setReviews({});
       setFilter("all");
+      setOnlyUnreviewed(false);
     } catch (e) {
       setError(
         e instanceof Error && e.name !== "TimeoutError"
@@ -284,7 +254,7 @@ export function HandoverApp({ model }: { model: string }) {
             {!result && !busy && (
               <div className="demo-invite">
                 <div><strong>Se hvordan det fungerer</strong><span>Ferdig eksempel. Ingen API-nøkkel nødvendig.</span></div>
-                <Button variant="outline" onClick={demo} disabled={!ready}><Play size={15} /> Prøv demo</Button>
+                <Button variant="outline" onClick={demo}><Play size={15} /> Prøv demo</Button>
               </div>
             )}
           </div>
@@ -363,7 +333,7 @@ export function HandoverApp({ model }: { model: string }) {
                   key={id}
                   id={id}
                   document={documents[id]}
-                  disabled={!!busy || !consent || !ready}
+                  disabled={!!busy || !consent}
                   loading={busy === id}
                   onUpload={(file) => upload(file, id)}
                   onView={() => setDocumentView(id)}
@@ -384,7 +354,7 @@ export function HandoverApp({ model }: { model: string }) {
                     key={id}
                     id={id}
                     document={documents[id]}
-                    disabled={!!busy || !consent || !ready}
+                    disabled={!!busy || !consent}
                     loading={busy === id}
                     onUpload={(file) => upload(file, id)}
                     onView={() => setDocumentView(id)}
@@ -462,11 +432,6 @@ export function HandoverApp({ model }: { model: string }) {
               </button>
             </div>
           )}
-          {storageWarning && (
-            <p className="storage-warning" role="status">
-              {storageWarning}
-            </p>
-          )}
           {busy === "analysis" && (
             <div className="loading-panel" role="status" aria-live="polite">
               <LoaderCircle className="spin" size={24} />
@@ -483,6 +448,7 @@ export function HandoverApp({ model }: { model: string }) {
               className="results-section"
               ref={resultsRef}
               aria-labelledby="results-title"
+              inert={!!busy && busy !== "generation" && busy !== "verification"}
             >
               <div className={`analysis-origin ${result.mode}`}>
                 <span>
@@ -596,7 +562,7 @@ export function HandoverApp({ model }: { model: string }) {
                     ? "Kontroller dokumentene og start en ny analyse"
                     : progress.unresolved === 0
                     ? "Klar til å lage forslag"
-                    : "Lagres i denne nettleserøkten"}
+                    : "Beholdes mens siden er åpen"}
                 </span>
               </div>
               <div className="findings-toolbar">

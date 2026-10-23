@@ -4,7 +4,7 @@ Denne guiden forklarer dataflyten og de viktigste designvalgene. Oppsett og bruk
 
 ## Arkitektur
 
-Next.js samler grensesnitt og serverruter i ett prosjekt. Det er ingen database eller eksterne dokumenttjenester. Dokumenter behandles i minnet. Vurderinger lagres lokalt mens kontrollen er åpen; utkast og godkjenning ligger i nettleserminnet. En ny sideåpning starter en tom kontroll.
+Next.js samler grensesnitt og serverruter i ett prosjekt. Det er ingen database eller eksterne dokumenttjenester. Dokumenter behandles i serverminnet ved forespørsler. Arbeidsøkten med dokumenter, analyse, vurderinger, utkast og godkjenning ligger bare i nettleserminnet mens siden er åpen. En ny sideåpning starter en tom kontroll.
 
 | Del | Ansvar |
 | --- | --- |
@@ -29,7 +29,7 @@ To faste dokumentplasser er obligatoriske. Tre er valgfrie, med én fil per plas
 | `correspondence` | Kundekorrespondanse |
 | `meeting_notes` | Møtenotater eller annen salgsinformasjon |
 
-Hver fil har ID, dokumenttype, navn, byteantall, filtype og tekst. ID og type må stemme med dokumentplassen. Å erstatte en fil nullstiller analysen. Faste plasser gjør kildehenvisningene stabile uten et dokumentregister. Prototypen kontrollerer ikke om en avtale faktisk er signert. Identisk tekst i flere dokumentfelt gir varsel og sperrer første analyse, også på serveren før Gemini kalles. Sammenligningen normaliserer Unicode og mellomrom, og er uavhengig av filnavn. Den avgjør ikke om en tekst faktisk er en kundeavtale.
+Hver fil har ID, dokumenttype, navn, byteantall, filtype og tekst. ID og type må stemme med dokumentplassen. Et filbytte nullstiller analysen først når den nye filen er lastet opp og validert. Ved feil beholdes dokumentet og arbeidsøkten. Faste plasser gjør kildehenvisningene stabile uten et dokumentregister. Prototypen kontrollerer ikke om en avtale faktisk er signert. Identisk tekst i flere dokumentfelt gir varsel og sperrer første analyse, også på serveren før Gemini kalles. Sammenligningen normaliserer Unicode og mellomrom, og er uavhengig av filnavn. Den avgjør ikke om en tekst faktisk er en kundeavtale.
 
 Et funn inneholder klassifisering, forklaring, kategori, primærkilde med ordrett sitat og eventuelle tilleggssitater. `informationType` skiller avtaleforpliktelser fra oppfølgingsinformasjon og kildekonflikter. Koden legger til stabil funn-ID og verifiseringsstatus. Brukerens beslutning og kommentar lagres separat fra AI-vurderingen.
 
