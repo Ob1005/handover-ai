@@ -127,9 +127,17 @@ export function createProposal(
 ): Proposal {
   const parsed = proposalContentSchema.parse(content);
   const source = proposalRequestSchema.parse(input);
+  // Follow-up questions must travel with the editable/downloadable document,
+  // even when the model only returned them in the separate summary list.
+  const missingFollowUps = [...new Set(parsed.followUps)].filter(
+    (item) => !quoteExists(item, parsed.text),
+  );
+  const text = missingFollowUps.length
+    ? `${parsed.text}\n\nÅPNE PUNKTER FOR OPPFØLGING\n${missingFollowUps.map((item) => `- ${item}`).join("\n")}`
+    : parsed.text;
   documentsSchema.parse({
     ...source.analysis.documents,
-    handover: draftDocument(parsed.text),
+    handover: draftDocument(text),
   });
   const allowed = new Set(
     source.analysis.findings
@@ -142,6 +150,7 @@ export function createProposal(
     );
   return proposalSchema.parse({
     ...parsed,
+    text,
     id: `proposal-${crypto.randomUUID()}`,
     mode,
     model,

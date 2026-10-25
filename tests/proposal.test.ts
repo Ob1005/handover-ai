@@ -14,6 +14,7 @@ import {
   checkDemoProposal,
 } from "../src/lib/proposal-demo";
 import { canGenerateProposal, updateReview, reviewProgress, getWorkflowStep } from "../src/lib/review";
+import { reanalysisInput } from "../src/lib/reanalysis";
 
 const { generate } = vi.hoisted(() => ({ generate: vi.fn() }));
 vi.mock("@google/genai", () => ({
@@ -26,8 +27,8 @@ vi.mock("server-only", () => ({}));
 import { POST } from "../src/app/api/proposal/route";
 import { generateProposal } from "../src/lib/server/proposal";
 
-function input(): ProposalRequest {
-  const analysis = getDemoAnalysis(false);
+function input(includeSupporting = false): ProposalRequest {
+  const analysis = getDemoAnalysis(includeSupporting);
   return {
     analysis,
     reviews: Object.fromEntries(
@@ -40,6 +41,50 @@ function input(): ProposalRequest {
   };
 }
 describe("proposal input, source handling and decisions", () => {
+  it("includes summary-only follow-ups in the standalone draft without mutating the model response", () => {
+    const data = input(true);
+    const teams = "Kunden ønsker digitalt oppstartsmøte på Teams. Møteformen må bekreftes.";
+    const content = {
+      text: data.analysis.documents.handover.text,
+      changes: [],
+      followUps: [teams, teams],
+    };
+    const before = structuredClone(content);
+    const proposal = createProposal(content, data, "live", "mock only");
+    expect(proposal.text).toContain("ÅPNE PUNKTER FOR OPPFØLGING\n- " + teams);
+    expect(proposal.text.split(teams)).toHaveLength(2);
+    expect(reanalysisInput(data.analysis, draftDocument(proposal.text)).handover.text)
+      .toContain(teams);
+    expect(content).toEqual(before);
+  });
+  it("does not repeat follow-ups already included in the note, including whitespace differences", () => {
+    const data = input();
+    const followUp = "Bekreft om oppstartsmøtet skal holdes digitalt på Teams.";
+    const text = data.analysis.documents.handover.text + "\n\n" + followUp.replaceAll(" ", "\n");
+    const proposal = createProposal({ text, changes: [], followUps: [followUp] }, data, "live", "mock only");
+    expect(proposal.text).toBe(text);
+  });
+  it.each(["document", "combined"] as const)("rejects follow-up additions that exceed the %s text limit rather than dropping them", limit => {
+    const data = input();
+    const maxDraftCharacters = limit === "document" ? 20_000 : 30;
+    if (limit === "combined") {
+      data.analysis.documents.agreement.text = "a".repeat(20_000);
+      data.analysis.documents.handover.text = "x".repeat(30);
+      data.analysis.documents.correspondence = {
+        ...data.analysis.documents.agreement,
+        id: "correspondence",
+        documentType: "correspondence",
+        text: "b".repeat(19_970),
+      };
+    }
+    expect(proposalRequestSchema.safeParse(data).success).toBe(true);
+    expect(proposalContext(data).maxDraftCharacters).toBe(maxDraftCharacters);
+    expect(() => createProposal({
+      text: "x".repeat(maxDraftCharacters),
+      changes: [],
+      followUps: ["Bekreft om oppstartsmøtet skal holdes digitalt på Teams."],
+    }, data, "live", "mock only")).toThrow();
+  });
   it("allows the demo to continue with only actionable findings reviewed and keeps all baseline findings", () => {
     const data = input();
     const covered = data.analysis.findings.filter(f => f.classification === "covered");
@@ -271,6 +316,21 @@ describe("proposal HTTP route and live SDK boundary (mocked)", () => {
       },
       body: JSON.stringify(body),
     });
+  it("returns a complete draft when Gemini puts the Teams question only in followUps", async () => {
+    const data = input(true);
+    const followUp = "Bekreft om oppstartsmøtet skal holdes digitalt på Teams slik kunden ønsker.";
+    generate.mockResolvedValue({ text: JSON.stringify({
+      text: data.analysis.documents.handover.text,
+      changes: [],
+      followUps: [followUp],
+    }) });
+    const response = await POST(request(data));
+    expect(response.status).toBe(200);
+    const { proposal } = await response.json();
+    expect(proposal.text).toContain(followUp);
+    expect(proposal.followUps).toEqual([followUp]);
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
   it("passes decisions and comments as data and accepts unreviewed covered findings", async () => {
     const data = input();
     for (const f of data.analysis.findings.filter(f => f.classification === "covered")) delete data.reviews[f.id];

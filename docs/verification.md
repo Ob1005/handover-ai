@@ -2,11 +2,11 @@
 
 ## Gjeldende versjon
 
-Kontrollert etter rettingen av filbytte, forenklingen av øktbehandling og skillet mellom avtalekrav og oppfølging i sluttkontrollen:
+Kontrollert etter rettingene av filbytte, øktbehandling, sluttkontroll og oppfølgingspunkter i det genererte notatet:
 
 | Kontroll | Resultat |
 | --- | --- |
-| Automatiske tester | 135 av 135 besto i ni testfiler |
+| Automatiske tester | 140 av 140 besto i ni testfiler |
 | Lint og TypeScript | Besto, TypeScript ble kjørt separat etter bygg |
 | Produksjonsbygg | Webpack-bygg besto |
 | Installasjon og utviklingsserver | Låst pakkeinstallasjon og Turbopack-oppstart besto i en ren kopi uten API-nøkkel; startsiden svarte med HTTP 200 |
@@ -21,9 +21,26 @@ På mobil ble de to syntetiske TXT-filene tidligere lastet opp gjennom filvelger
 
 Duplikatkontrollen er testet med samme tekst i ulike dokumentfelt, omdøpte filer, PDF/TXT og forskjeller i Unicode eller mellomrom. I nettleseren ga samme kunde-e-post i begge obligatoriske felt et varsel og sperret analyse. Varselet forsvant etter filbytte. Tomme analyser kan verken åpne forslag i grensesnittet eller sendes til forslagsruten; serverkontrollene ble testet uten Gemini-kall.
 
-Automatiske tester bruker mockede Gemini-svar. De kontrollerer blant annet fil- og responsvalidering, kildesitater, beslutningsregler, forslag, fast grunnlag ved ny kontroll og tekstsammenligning. De måler ikke modellens treffsikkerhet. **Ingen nye live-kall til Gemini ble gjort i denne revisjonen.**
+Automatiske tester bruker mockede Gemini-svar. De kontrollerer blant annet fil- og responsvalidering, kildesitater, beslutningsregler, forslag, fast grunnlag ved ny kontroll og tekstsammenligning. De måler ikke modellens treffsikkerhet. Live-kontrollen nedenfor er separat fra programvaretestene.
 
 Regresjonstester dekker ERP- og CSV-krav som feilaktig ble flagget for bekreftelse i første analyse. De kan nå bli dekket når sluttkontrollen eksplisitt vurderer avtalekravet som overført med verifiserte sitater. Egne negative tilfeller kontrollerer at støttekilder, konflikter, tvetydighet og ugyldige sitater ikke kan bruke denne veien. Rettingen er kontrollert med mockede modellvurderinger, ikke en ny live-evaluering.
+
+Et mocket forslagskall gjenskaper at Teams-spørsmålet bare finnes i modellens oppfølgingsliste. Testene kontrollerer at spørsmålet blir med i selve notatet og grunnlaget for sluttkontroll, at eksisterende spørsmål ikke gjentas, og at tilføyelser ikke kan overskride tekstgrensene.
+
+## Gjentakelseskontroll 25. oktober 2026
+
+Seks sekvensielle live-kall til `gemini-3.5-flash-lite` brukte de samme tre Fjordlogistikk-filene fra `public/examples`: kundeavtale, overleveringsnotat og kundekorrespondanse. Dokumentinnhold, modell, responsformat og genereringsinnstillinger var uendret. Råsvarene ble lagret før kilde- og klassifiseringskontrollen.
+
+| Instruksjon | Funn i de tre kjøringene | Dekket før appens validering | Dekket etter validering |
+| --- | --- | --- | --- |
+| Opprinnelig | 5, 6, 5 | 0, 0, 0 | 0, 0, 0 |
+| Presisert til å inkludere dekkede avtalepunkter | 8, 8, 8 | 3, 3, 3 | 3, 3, 3 |
+
+Den opprinnelige instruksen ble tolket som en avviksliste. Modellen utelot dekkede leveranse- og opplæringspunkter; rapportering kom bare med i én kjøring, da som et avklaringspunkt om «oppstart» mot «produksjonssetting». Rettingen presiserer at alle selvstendige avtalepunkter skal med, også dekkede, uten å endre eksempeltekstene eller hardkode forventede funn.
+
+Alle seks råsvar ble kjørt gjennom valideringen på nytt og ga identiske funn som første gang. Ingen «Dekket»-vurderinger ble overstyrt i disse kjøringene. Appen endret Teams-ønsket fra «Potensielt manglende» til «Må avklares» i alle seks, fordi modellen samtidig satte `requiresConfirmation=true`. Det er tilsiktet. I én av de tre siste kjøringene oppga modellen et sitat fra overleveringen som om det kom fra kundekorrespondansen. Appen markerte det korrekt som uverifisert; datoavviket var allerede klassifisert som «Må avklares».
+
+Dette er en liten diagnose på ett dokumentsett, ikke en presisjonsmåling eller garanti for gjentakbarhet. Titler og forklaringer varierte fortsatt. Rårapportene er lagret lokalt i ignorert `evaluation-results/` og inneholder både instruksjon, dokumenter, modellrespons og validerte funn.
 
 ## Historisk modelevaluering
 

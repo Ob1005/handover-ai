@@ -352,7 +352,11 @@ export function ProposalPanel({
             >
               {proposal.followUps.length > 0 && (
                 <>
-                  <h3>Krever fortsatt oppfølging</h3>
+                  <h3>Oppfølgingspunkter fra {proposal.mode === "demo" ? "demoen" : "AI"}</h3>
+                  <p className="proposal-note">
+                    Punktene ble tatt med i det genererte notatet.
+                    Oversikten oppdateres ikke når du redigerer; sluttkontrollen vurderer teksten du har nå.
+                  </p>
                   <ul>
                     {proposal.followUps.map((item, i) => (
                       <li key={i}>{item}</li>
