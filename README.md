@@ -94,6 +94,8 @@ Når terminalen viser **Ready**, finner du nettadressen på linjen **Local**, no
 
 Velg **Prøv demo** for å gå gjennom hele arbeidsflyten uten API-nøkkel. Neste gang trenger du bare å åpne prosjektmappen og kjøre `pnpm dev`.
 
+For egne live-tester finnes både de [korte Fjordlogistikk-eksemplene i TXT](public/examples) og et [lengre Vestvik-eksempel med tre PDF-er](public/examples/pdf/README.md). PDF-settet har ti sider totalt og er et separat, syntetisk prosjekt.
+
 **Hvis oppstarten stopper:**
 
 - `command not found: node`, `npm` eller `pnpm`: Verktøyet er ikke installert eller tilgjengelig i terminalen. Fullfør steg 1 og åpne en ny terminal.

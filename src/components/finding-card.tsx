@@ -99,6 +99,12 @@ export function FindingCard({
           {readOnly && <strong>Opprinnelig funn: </strong>}
           {finding.description}
         </p>
+        {finding.evidence.quantities === "mismatch" && !transferredFollowUp && (
+          <p className="validation-warning">
+            Varighet eller klokkeslett fra kildesitatet er ikke gjengitt likt i notatsitatet.
+            Kontroller tallene mot avtalen.
+          </p>
+        )}
         {finding.modelClassification !== finding.classification && (
           <p className="validation-warning">
             Klassifiseringen er justert etter kildekontrollen.

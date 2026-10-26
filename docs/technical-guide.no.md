@@ -47,6 +47,8 @@ Koden sjekker hvert sitat i dokumentet med angitt ID. Unicode og mellomrom norma
 
 Avtalen er førende. Opplysninger fra andre kilder blir ikke automatisk avtaleforpliktelser. Konflikter, tvetydighet og behov for bekreftelse gir «Må avklares» i første analyse. Det samme gjelder uverifisert kildebelegg. Et «Dekket»-svar må ha et verifiserbart sitat fra notatet.
 
+En ekstra kontroll sammenligner gjenkjente varigheter og klokkeslett i de verifiserte sitatene, blant annet norske tallord mot sifre og virkedager mot arbeidsdager. Et avvik eller manglende samsvar gir «Må avklares» selv om modellen foreslår «Dekket». Den samme kontrollen gjelder ved ny kontroll. Dokumentert oppfølging kan vise begge verdiene, men må ha med avtalens verdi. Kontrollen konverterer ikke uker til dager og avgjør ikke full semantisk dekning, datoer, priser eller alle mulige tallformater.
+
 Gemini skal samle samme opplysning i ett funn og vise begge sider av en konflikt. Koden samler i tillegg identiske sitater og beskrivelser innen samme kategori, samt speilvendte konflikter med samme kildesitater. Ulike eller tvetydige kildeutdrag beholdes separat. Dette fjerner noen duplikater uten å forsøke å avgjøre semantisk likhet med nøkkelord.
 
 **Et verifisert sitat viser at teksten finnes, ikke at modellens tolkning er riktig.** Modellens klassifisering bevares separat fra klassifiseringen etter validering.
@@ -57,7 +59,9 @@ Første analyse skal liste både dekkede avtalepunkter og avvik. Instruksen ber 
 
 Bare «Potensielt manglende» og «Må avklares» krever bekreftelse eller avvisning før forslag kan genereres. Dekkede krav kan vurderes valgfritt. Klient og server bruker samme regel. En analyse uten funn gir ikke noe kontrollgrunnlag og kan ikke brukes til forslagsgenerering. Å bekrefte et funn betyr enighet i vurderingen, ikke at saken er løst.
 
-Forslagskallet får dokumentene, funnene, beslutningene og kommentarene. Serveren beregner sitatverifisering på nytt og kontrollerer at endringslisten bare viser til kjente, bekreftede funn. Gemini skal bevare korrekt innhold, rette bekreftede avvik og beskrive åpne ønsker og konflikter som oppfølging. Avviste funn skal ikke gi automatiske rettelser.
+Forslagskallet får dokumentene, funnene, beslutningene og kommentarene. Gemini returnerer avgrensede rettelser og tillegg, ikke et omskrevet notat. Serveren beregner sitatverifisering på nytt og gir hvert tilgjengelig, bekreftet avvik et redigeringsmål: et entydig sitat fra originalnotatet eller et nytt avsnitt når informasjon mangler. Uverifiserte eller gjentatte tekstutdrag gir ikke grunnlag for automatisk erstatning. Dekkede og avviste funn kan ikke rettes automatisk.
+
+Serveren anvender rettelsene på originalteksten og beholder alle områder utenfor de valgte utdragene. Ukjente, gjentatte eller overlappende rettelser avvises samlet. En rettelse kan heller ikke fjerne et annet dekket eller avvist punkts verifiserte notatsitat. Dette beskytter eksisterende innhold uten å stole på at modellen husker å gjenta hele notatet. Innholdet i en tillatt rettelse må fortsatt vurderes av brukeren og kontrolleres på nytt. Demoen bruker fortsatt lokale regler.
 
 Oppfølgingsspørsmål skal også stå i selve notatet. Hvis modellen bare legger dem i den separate oppfølgingslisten, føyer serveren dem til under «Åpne punkter for oppfølging». Spørsmål som allerede finnes ordrett i notatet, gjentas ikke; forskjeller i mellomrom ignoreres. Tekstgrensene kontrolleres etter tilføyelsen. Dermed følger punktene med til nedlasting og sluttkontroll. Sideboksen viser den opprinnelige oversikten fra genereringen og oppdateres ikke ved manuell redigering.
 

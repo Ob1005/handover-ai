@@ -1,0 +1,105 @@
+{
+  "description": "Separat, manuelt utformet kontrollgrunnlag før live-test. Dette er ikke et uttømmende sett med alle avtaleforpliktelser. Funn kan grupperes ulikt. Ingen fasit sendes til Gemini.",
+  "documents": {
+    "agreement": "Vestvik_Kundeavtale.pdf",
+    "handover": "Vestvik_Overleveringsnotat.pdf",
+    "correspondence": "Vestvik_Kundekorrespondanse.pdf"
+  },
+  "checks": [
+    {
+      "id": "export-time",
+      "expected": "conflict",
+      "agreement": "senest kl. 06.00 hver virkedag",
+      "handover": "innen kl. 08.00 på virkedager",
+      "reason": "Morgeneksporten er planlagt to timer for sent."
+    },
+    {
+      "id": "export-alert",
+      "expected": "missing",
+      "agreement": "e-postvarsel innen 30 minutter",
+      "reason": "Notatet nevner en logg, men utelater mottaker og varslingsfrist ved feil."
+    },
+    {
+      "id": "production-date",
+      "expected": "conflict",
+      "agreement": "produksjonssetting er 15. mars 2027",
+      "handover": "22. mars 2027 inn som produksjonsdato",
+      "reason": "Intern plan er en uke senere enn avtalen, uten godkjent endring."
+    },
+    {
+      "id": "csv-deadline",
+      "expected": "missing",
+      "agreement": "CSV-format senest 15. februar 2027",
+      "reason": "Kundens konkrete datafrist og formatkrav mangler i notatet."
+    },
+    {
+      "id": "startup-support",
+      "expected": "conflict",
+      "agreement": "ti virkedager etter produksjonssetting",
+      "handover": "fem virkedager til oppstartsoppfølging",
+      "reason": "Oppfølgingstiden er halvert i salgsoverleveringen."
+    },
+    {
+      "id": "invoice-history",
+      "expected": "conflict_follow_up",
+      "agreement": "historiske fakturaer er ikke inkludert",
+      "correspondence": "ti års fakturahistorikk direkte i Lagerspor",
+      "reason": "Kunden har en forventning som avviker fra omfanget; leverandøren har ikke godkjent den."
+    },
+    {
+      "id": "weekend",
+      "expected": "conflict_follow_up",
+      "agreement": "Produksjonssetting i helg og beredskap",
+      "correspondence": "lørdag 13. mars 2027",
+      "reason": "Kunden forespør helgebistand, som er ekskludert og ikke bestilt."
+    },
+    {
+      "id": "english-guide",
+      "expected": "follow_up",
+      "agreement": "Oversettelser er ikke inkludert",
+      "correspondence": "driftsveiledningen på engelsk",
+      "reason": "Ekstra språk er en åpen forespørsel; det er ikke et nytt avtalevilkår."
+    },
+    {
+      "id": "teams",
+      "expected": "follow_up",
+      "correspondence": "oppstartsmøtet holdes digitalt på Teams",
+      "reason": "Kundeønsket er ikke videreført i notatet."
+    },
+    {
+      "id": "sso",
+      "expected": "covered",
+      "agreement": "kundens eksisterende Microsoft Entra ID",
+      "handover": "kundens Microsoft Entra ID",
+      "reason": "SSO og separate roller er med."
+    },
+    {
+      "id": "training",
+      "expected": "covered",
+      "agreement": "tre digitale opplæringsøkter for åtte nøkkelbrukere",
+      "handover": "tre digitale opplæringsøkter for åtte nøkkelbrukere",
+      "reason": "Antall økter, deltakere og tidspunkt er med."
+    },
+    {
+      "id": "acceptance",
+      "expected": "covered",
+      "agreement": "fem virkedager til akseptansetest",
+      "handover": "fem virkedager til akseptansetest",
+      "reason": "Testperiode og skriftlig aksept er med."
+    },
+    {
+      "id": "status",
+      "expected": "covered",
+      "agreement": "hver tirsdag frem til produksjonssetting",
+      "handover": "hver tirsdag frem til produksjonssetting",
+      "reason": "Frekvens og sluttidspunkt er med."
+    },
+    {
+      "id": "cleanup",
+      "expected": "covered",
+      "agreement": "30 kalenderdager etter godkjent produksjonssetting",
+      "handover": "30 kalenderdager etter godkjent produksjonssetting",
+      "reason": "Sletting av midlertidige filer og bekreftelse er med."
+    }
+  ]
+}

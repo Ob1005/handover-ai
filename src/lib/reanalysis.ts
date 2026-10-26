@@ -10,6 +10,7 @@ import {
   type UploadedDocument,
 } from "./schemas";
 import { validateFindings } from "./evidence";
+import { checkQuantities } from "./quantity-check";
 
 export const reanalysisRequestSchema = z
   .object({
@@ -136,10 +137,12 @@ export function createReanalysis(
     const verifiedCoverage = evaluated && assessment?.classification === "covered" &&
       validated.evidence.status === "verified" && validated.evidence.handover === "verified";
     const agreementCovered = verifiedCoverage &&
+      validated.evidence.quantities !== "mismatch" &&
       assessment?.coverageBasis === "agreement_requirement" &&
       original.sourceDocumentId === "agreement" && original.certainty === "explicit" &&
       original.informationType !== "conflict";
     const transferredFollowUp = verifiedCoverage && needsFollowUp(original) &&
+      checkQuantities(original.sourceQuote, assessment?.handoverQuote ?? null, true) !== "mismatch" &&
       assessment?.coverageBasis === "documented_follow_up";
     const covered = agreementCovered || transferredFollowUp;
     return {

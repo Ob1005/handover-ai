@@ -138,6 +138,7 @@ export const evidenceSchema = z
     relatedSources: z.array(verification).max(3),
     handover: z.enum(["verified", "unverified", "not_provided"]),
     status: verification,
+    quantities: z.enum(["not_checked", "match", "mismatch"]).default("not_checked"),
   })
   .strict();
 export const findingSchema = aiFindingSchema.extend({

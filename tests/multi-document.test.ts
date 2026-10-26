@@ -616,8 +616,7 @@ describe("multi-document SDK and HTTP boundaries, mocked without quota", () => {
     const input = reviewed();
     generate.mockResolvedValue({
       text: JSON.stringify({
-        text: input.analysis.documents.handover.text,
-        changes: [],
+        updates: [],
         followUps: [
           "Avklar kundens forventning om historiske fakturaer mot avtalen.",
         ],

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { extractDocument } from "../src/lib/files";
+import { readFileSync } from "node:fs";
+import { quoteExists } from "../src/lib/evidence";
+import { documentsSchema } from "../src/lib/schemas";
 
 // Minimal genuine PDF fixture with a selectable text stream and correct xref offsets.
 function pdf(text: string) {
@@ -25,6 +28,29 @@ function pdf(text: string) {
   return new File([output], "fixture.pdf", { type: "application/pdf" });
 }
 describe("real text extraction", () => {
+  it("extracts the complete multi-page PDF scenario with Norwegian text within the shared input budget", async () => {
+    const scenario = JSON.parse(readFileSync("evaluation/pdf-scenario.json", "utf8")) as {
+      documents: Record<"agreement" | "handover" | "correspondence", string>;
+      checks: Record<string, string>[];
+    };
+    const entries = await Promise.all(Object.entries(scenario.documents).map(async ([id, name]) => {
+      const bytes = readFileSync(`public/examples/pdf/${name}`);
+      return [id, await extractDocument(new File([bytes], name, { type: "application/pdf" }), id as keyof typeof scenario.documents)];
+    }));
+    const documents = documentsSchema.parse(Object.fromEntries(entries));
+    expect(documents.agreement.text).toContain("11. Avtalestatus");
+    expect(documents.handover.text).toContain("9. Praktisk overlevering");
+    expect(documents.correspondence!.text).toContain("E-post 6");
+    for (const role of ["agreement", "handover", "correspondence"] as const) {
+      const document = documents[role]!;
+      expect(document.type).toBe("pdf");
+      expect(document.text.length).toBeGreaterThan(5_000);
+      expect(document.text).not.toContain("\uFFFD");
+      for (const check of scenario.checks) {
+        if (check[role]) expect(quoteExists(check[role], document.text), `${check.id}: ${role}`).toBe(true);
+      }
+    }
+  });
   it("extracts UTF-8 TXT with Norwegian characters", async () => {
     const doc = await extractDocument(
       new File(

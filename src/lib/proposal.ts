@@ -12,6 +12,7 @@ import {
   type Reviews,
 } from "./schemas";
 import { quoteExists } from "./evidence";
+import { checkQuantities } from "./quantity-check";
 import { hasCompleteBaseline, type ReanalysisResult } from "./reanalysis";
 
 export const proposalRequestSchema = z
@@ -107,6 +108,9 @@ export function proposalContext(input: ProposalRequest) {
         ),
       })),
       handoverQuote: f.handoverQuote,
+      quantityCheck: quoteExists(f.sourceQuote, parsed.analysis.documents[f.sourceDocumentId]?.text ?? "") &&
+        quoteExists(f.handoverQuote, parsed.analysis.documents.handover.text)
+        ? checkQuantities(f.sourceQuote, f.handoverQuote) : "not_checked",
       // Never trust verification flags submitted by the browser.
       sourceQuoteVerified: quoteExists(
         f.sourceQuote,

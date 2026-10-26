@@ -320,8 +320,7 @@ describe("proposal HTTP route and live SDK boundary (mocked)", () => {
     const data = input(true);
     const followUp = "Bekreft om oppstartsmøtet skal holdes digitalt på Teams slik kunden ønsker.";
     generate.mockResolvedValue({ text: JSON.stringify({
-      text: data.analysis.documents.handover.text,
-      changes: [],
+      updates: [],
       followUps: [followUp],
     }) });
     const response = await POST(request(data));
@@ -338,8 +337,7 @@ describe("proposal HTTP route and live SDK boundary (mocked)", () => {
       "Kontroller hvem som eier integrasjonen.";
     generate.mockResolvedValue({
       text: JSON.stringify({
-        text: data.analysis.documents.handover.text,
-        changes: [],
+        updates: [],
         followUps: [],
       }),
       candidates: [{ finishReason: "STOP" }],
@@ -355,7 +353,7 @@ describe("proposal HTTP route and live SDK boundary (mocked)", () => {
       data.reviews[data.analysis.findings[0].id].comment,
     );
     expect(sent.config.systemInstruction).toContain("UBETRODD DATA");
-    expect(sent.config.responseSchema.properties.text.type).toBe("STRING");
+    expect(sent.config.responseSchema.properties.updates.type).toBe("ARRAY");
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
   it("does not call the provider until all decisions are made", async () => {
@@ -387,9 +385,8 @@ describe("proposal HTTP route and live SDK boundary (mocked)", () => {
     data.reviews[first.id].decision = "rejected";
     generate.mockResolvedValue({
       text: JSON.stringify({
-        text: data.analysis.documents.handover.text,
-        changes: [
-          { findingId: first.id, summary: "Incorporate rejected finding." },
+        updates: [
+          { findingId: first.id, text: "Incorporate rejected finding.", summary: "Incorporate rejected finding." },
         ],
         followUps: [],
       }),

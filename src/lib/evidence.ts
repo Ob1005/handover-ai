@@ -8,6 +8,7 @@ import {
   type Finding,
 } from "./schemas";
 import { AppError } from "./errors";
+import { checkQuantities } from "./quantity-check";
 
 export function normalizeWhitespace(value: string) {
   return value.normalize("NFC").replace(/\s+/gu, " ").trim();
@@ -155,11 +156,15 @@ export function validateFindings(
       invalidAuthority ||
       informationType === "conflict" ||
       finding.certainty === "ambiguous";
+    const quantities = source === "verified" && handover === "verified"
+      ? checkQuantities(finding.sourceQuote, finding.handoverQuote)
+      : "not_checked";
     const unsafe =
       source === "unverified" ||
       relatedSources.includes("unverified") ||
       handover === "unverified" ||
       requiresConfirmation ||
+      (finding.classification === "covered" && quantities === "mismatch") ||
       (finding.classification === "covered" && handover === "not_provided");
     return {
       ...finding,
@@ -173,6 +178,7 @@ export function validateFindings(
         handover: finding.handoverQuote === null ? null : "handover",
       },
       evidence: {
+        quantities,
         source,
         relatedSources,
         handover,
