@@ -4,7 +4,13 @@ Handover AI sammenligner en kundeavtale og andre salgskilder med et internt over
 
 En norsk porteføljeprototype utviklet med AI-assistanse. **Bruk bare syntetiske, ikke-konfidensielle dokumenter.** Demoen krever ingen API-nøkkel.
 
-**Vil du prøve prototypen?** Den kjøres på din egen maskin. Følg [oppstartsveiledningen](#kjør-lokalt) først, og velg deretter **Prøv demo** i appen. Skjermbildene nedenfor viser arbeidsflyten uten at du trenger å installere noe.
+**Se arbeidsflyten på 71 sekunder** i GIF-en nedenfor, uten installasjon. Vil du prøve selv, følg [oppstartsveiledningen](#kjør-lokalt) og velg **Prøv demo** i appen. Demoen kjøres på din egen maskin.
+
+## Kort demonstrasjon
+
+![71 sekunders demogjennomgang: dokumentgrunnlag, kildesitater, vurdering av funn, redigering, tekstendringer, sluttkontroll og manuell godkjenning](docs/demo/handover-ai-demo.gif)
+
+Gjennomgangen viser faktiske skjermbilder fra appens demo med korte norske forklaringer. Den bruker syntetiske dokumenter, forhåndsberegnede funn og lokale regler for forslag og sluttkontroll, uten AI-kall. Åpne saker følger med videre som oppfølgingspunkter. [Åpne GIF-en i full størrelse](docs/demo/handover-ai-demo.gif).
 
 ## Problemet
 
